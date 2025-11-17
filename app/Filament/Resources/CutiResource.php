@@ -48,7 +48,8 @@ class CutiResource extends Resource
     protected static ?string $model = Cuti::class;
 
     // Navigasi
-    protected static ?string $navigationIcon = 'heroicon-o-document-text';
+    protected static ?string $navigationGroup = 'Layanan Pegawai';
+    protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
     protected static ?string $modelLabel = 'Pengajuan Cuti';
     protected static ?string $pluralModelLabel = 'Pengajuan Cuti';
     protected static ?int $navigationSort = 2;
@@ -97,8 +98,17 @@ class CutiResource extends Resource
                 Textarea::make('alamat_selama_cuti')
                     ->label('Alamat Selama Menjalankan Cuti')
                     ->required()
-                    ->columnSpanFull()
-                // ==========================
+                    ->columnSpanFull(),
+                    
+                Forms\Components\TextInput::make('lampiran_link')
+                    ->label('Bukti Lampiran (Link Google Drive / Lainnya)')
+                    ->placeholder('https://drive.google.com/file/d/...')
+                    ->url() // Validasi format URL (harus http/https)
+                    ->suffixIcon('heroicon-m-link')
+                    ->helperText('Opsional. Wajib diisi (Link Surat Dokter) jika mengambil Cuti Sakit.')
+                    ->columnSpanFull(), // Agar rapi memenuhi lebar
+                // ===========================
+                
             ]);
     }
 
@@ -108,6 +118,9 @@ class CutiResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->striped() // Baris belang-belang (Zebra striping)
+            ->defaultSort('created_at', 'desc') // Urutan default terbaru di atas
+            ->poll('10s') // Auto-refresh tabel setiap 10 detik (Realtime feel)
             ->columns([
                 TextColumn::make('employee.nama')
                     ->label('Nama Pegawai')
@@ -157,33 +170,41 @@ class CutiResource extends Resource
                         ]);
                     }),
 
-                // === AKSI TAHAP 1: KETUA TIM SDM ===
+                // === AKSI TAHAP 1: KETUA TIM / ATASAN LANGSUNG ===
                 Action::make('Proses Atasan Langsung')
                     ->label('Proses (Ketua Unit)')
+                    ->icon('heroicon-o-pencil')
+                    ->color('info')
                     ->visible(function (Cuti $record) {
                         $user = Auth::user();
-                        // Cek apakah user yang login adalah KETUA dari unit kerja si pemohon cuti
-                        $isKetuaUnitIni = $record->employee->unitKerja && $record->employee->unitKerja->ketua_user_id === $user->id;
+                        // Cek apakah user adalah Ketua Unit dari pegawai yang mengajukan
+                        $isKetuaUnit = $record->employee->unitKerja && 
+                                       $record->employee->unitKerja->ketua_user_id === $user->id;
                         
-                        return $isKetuaUnitIni && $record->status_global === 'Menunggu Persetujuan Atasan Langsung';
+                        return $isKetuaUnit && $record->status_global === 'Menunggu Persetujuan Atasan Langsung';
                     })
                     ->form([
-                        Select::make('status_sdm')
-                            ->label('Persetujuan SDM')
+                        // PERBAIKAN 1: Ganti 'status_sdm' jadi 'status_atasan_langsung'
+                        Select::make('status_atasan_langsung')
+                            ->label('Persetujuan Ketua Unit')
                             ->options(['approved' => 'Disetujui', 'rejected' => 'Ditolak'])
                             ->required(),
-                        Textarea::make('tanggapan_sdm')
-                            ->label('Catatan / Tanggapan SDM'),
+                        // PERBAIKAN 2: Ganti 'tanggapan_sdm' jadi 'tanggapan_atasan_langsung'
+                        Textarea::make('tanggapan_atasan_langsung')
+                            ->label('Catatan / Tanggapan'),
                     ])
                     ->action(function (Cuti $record, array $data): void {
-                        $record->status_sdm = $data['status_sdm'];
-                        $record->tanggapan_sdm = $data['tanggapan_sdm'];
-                        $record->sdm_approver_id = Auth::id();
+                        // PERBAIKAN 3: Simpan ke kolom yang benar
+                        $record->status_atasan_langsung = $data['status_atasan_langsung'];
+                        $record->tanggapan_atasan_langsung = $data['tanggapan_atasan_langsung'];
+                        $record->atasan_langsung_approver_id = Auth::id();
 
-                        if ($data['status_sdm'] === 'approved') {
+                        if ($data['status_atasan_langsung'] === 'approved') {
                             $record->status_global = 'Menunggu Persetujuan Tata Usaha';
                         } else {
-                            $record->status_global = 'Ditolak (oleh SDM)';
+                            // Opsional: Ambil nama unit agar pesan lebih jelas
+                            $namaUnit = $record->employee->unitKerja->nama ?? 'Unit';
+                            $record->status_global = "Ditolak (oleh Ketua $namaUnit)";
                         }
                         $record->save();
                     }),
@@ -215,61 +236,6 @@ class CutiResource extends Resource
                         }
                         $record->save();
                     }),
-                
-                // === AKSI TAHAP 3: KEPALA STASIUN  ===
-                Action::make('Proses Atasan Langsung')
-                    ->label('Proses (Ketua Unit)')
-                    ->icon('heroicon-o-pencil') // Tambahkan ikon
-                    ->color('info')
-                    ->visible(function (Cuti $record) {
-                        $user = Auth::user();
-                        
-                        // Hanya muncul jika User adalah Ketua dari Unit si Pegawai
-                        // DAN Statusnya 'Menunggu Persetujuan Atasan Langsung'
-                        $isKetuaUnit = $record->employee->unitKerja 
-                                    && $record->employee->unitKerja->ketua_user_id === $user->id;
-                                    
-                        return $isKetuaUnit && $record->status_global === 'Menunggu Persetujuan Atasan Langsung';
-                    })
-                    ->form([
-                        // Update nama field ke 'status_atasan_langsung'
-                        Select::make('status_atasan_langsung')
-                            ->label('Persetujuan Ketua Unit')
-                            ->options(['approved' => 'Disetujui', 'rejected' => 'Ditolak'])
-                            ->required(),
-                        Textarea::make('tanggapan_atasan_langsung')
-                            ->label('Catatan / Tanggapan'),
-                    ])
-                    ->action(function (Cuti $record, array $data): void {
-                        $record->status_atasan_langsung = $data['status_atasan_langsung'];
-                        $record->tanggapan_atasan_langsung = $data['tanggapan_atasan_langsung'];
-                        $record->atasan_langsung_approver_id = Auth::id();
-                        $employee = $record->employee;
-
-                        if ($data['status_kepala'] === 'approved') {
-                            $durasiCuti = Carbon::parse($record->tanggal_mulai)
-                                              ->diffInDays(Carbon::parse($record->tanggal_akhir)) + 1;
-                            
-                            if ($record->jenis_cuti === 'Cuti Tahunan') {
-                                if ($employee->sisa_cuti_tahunan < $durasiCuti) {
-                                    Notification::make()
-                                        ->title('Gagal! Sisa Cuti Tahunan tidak mencukupi.')
-                                        ->body("Pegawai {$employee->nama} hanya memiliki {$employee->sisa_cuti_tahunan} hari.")
-                                        ->danger()
-                                        ->send();
-                                    return;
-                                }
-                                $employee->sisa_cuti_tahunan -= $durasiCuti;
-                                $employee->save();
-                            }
-                            $record->status_global = 'Disetujui';
-                        } else {
-                            $record->status_global = 'Ditolak (oleh Kepala)';
-                        }
-                        $record->save();
-                        $employee->notify(new CutiStatusUpdated($record));
-                    }),
-                
                 // Tombol default
                 EditAction::make(),
                 DeleteAction::make(),
@@ -328,5 +294,22 @@ class CutiResource extends Resource
             'create' => Pages\CreateCuti::route('/create'),
             'edit' => Pages\EditCuti::route('/{record}/edit'),
         ];
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        // Menghitung jumlah cuti yang "Menunggu" keputusan user yang login
+        // Logika ini bisa disesuaikan dengan role
+        return static::getModel()::where('status_global', 'like', '%Menunggu%')->count();
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning'; // Warna badge kuning/oranye
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['employee.nama', 'jenis_cuti'];
     }
 }

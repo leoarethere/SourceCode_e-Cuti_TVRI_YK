@@ -26,7 +26,13 @@ class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationGroup = 'Master Data';
+    protected static ?int $navigationSort = 1; // Atur urutan
+
+    protected static ?string $navigationIcon = 'heroicon-o-user';
+    protected static ?string $modelLabel = 'User';
+    protected static ?string $pluralModelLabel = 'User';
+
 
     public static function form(Form $form): Form
     {
@@ -73,7 +79,7 @@ class UserResource extends Resource
                     ->preserveFilenames()
                     ->nullable()
                     // Hanya tampilkan field ini jika rolenya adalah atasan
-                    ->visible(fn ($get) => in_array($get('role'), ['sdm', 'tata_usaha', 'kepala_stasiun'])),
+                    ->visible(fn ($get) => $get('role') === 'kepala_stasiun'),
                 // =========================
 
                 TextInput::make('password')

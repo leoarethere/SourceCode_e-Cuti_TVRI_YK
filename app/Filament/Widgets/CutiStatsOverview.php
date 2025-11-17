@@ -6,45 +6,51 @@ use App\Models\Cuti;
 use App\Models\Employee;
 use Illuminate\Support\Facades\Auth;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Filament\Widgets\StatsOverviewWidget as BaseWidget; // <-- Pastikan ini ada
+use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 
 class CutiStatsOverview extends BaseWidget
 {
-    protected static ?string $pollingInterval = '30s';
+    // Agar kartu statistik tidak terlalu lebar
+    protected int | string | array $columnSpan = 'full';
+
+    // Atur urutan agar muncul paling atas
+    protected static ?int $sort = 1;
+    
+    // Refresh data setiap 15 detik
+    protected static ?string $pollingInterval = '15s';
 
     protected function getStats(): array
     {
-        // Status-status final
-        $finalStatuses = ['Disetujui', 'Ditolak (oleh SDM)', 'Ditolak (oleh Tata Usaha)', 'Ditolak (oleh Kepala)'];
+        // Hitung Cuti yang sedang berjalan (Status mengandung kata 'Menunggu')
+        $pendingCount = Cuti::where('status_global', 'like', '%Menunggu%')->count();
+
+        // Hitung Cuti yang sudah Disetujui tahun ini
+        $approvedCount = Cuti::where('status_global', 'Disetujui')
+                            ->whereYear('tanggal_mulai', now()->year)
+                            ->count();
+
+        // Hitung Total Pegawai
+        $employeeCount = Employee::count();
 
         return [
-            // Kartu 1: Total Pegawai
-            Stat::make('Total Pegawai', Employee::count())
-                ->description('Jumlah total pegawai terdaftar')
+            Stat::make('Total Pegawai', $employeeCount)
+                ->description('Pegawai aktif terdaftar')
                 ->icon('heroicon-o-users')
                 ->color('primary'),
 
-            // Kartu 2: Cuti Pending (Logika BARU)
-            Stat::make('Pengajuan Pending', 
-                    Cuti::whereNotIn('status_global', $finalStatuses)->count()
-                )
-                ->description('Cuti yang menunggu persetujuan')
+            Stat::make('Pengajuan Pending', $pendingCount)
+                ->description('Menunggu persetujuan')
                 ->icon('heroicon-o-clock')
                 ->color('warning'),
 
-            // Kartu 3: Cuti Disetujui (Logika BARU)
-            Stat::make('Cuti Disetujui (Tahun Ini)', 
-                    Cuti::where('status_global', 'Disetujui') // <-- Cari status 'Disetujui'
-                        ->whereYear('tanggal_mulai', now()->year())
-                        ->count()
-                )
-                ->description('Total cuti yang telah disetujui')
+            Stat::make('Cuti Disetujui (Tahun Ini)', $approvedCount)
+                ->description('Total pengajuan diterima')
                 ->icon('heroicon-o-check-circle')
                 ->color('success'),
         ];
     }
 
-    // Fungsi dari Tahap 5 (menyembunyikan dari pegawai)
+    // Pastikan hanya admin/atasan yang bisa lihat
     public static function canView(): bool
     {
         return Auth::user()->role !== 'pegawai';
