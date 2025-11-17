@@ -7,13 +7,14 @@ use App\Models\User;
 use App\Models\UnitKerja;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Factories\HasFactory; // <-- 1. IMPORT INI
+use Illuminate\Database\Eloquent\Relations\BelongsTo; // <-- 1. IMPORT INI
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Employee extends Model
 {
-    use HasFactory, Notifiable; // <-- 2. TAMBAHKAN 'Notifiable' DI SINI
+    use HasFactory, Notifiable, SoftDeletes; // ✅ Tambahkan ini
 
     /**
      * The attributes that are mass assignable.
@@ -57,11 +58,9 @@ class Employee extends Model
     protected static function booted(): void
     {
         static::saving(function ($employee) {
-            // Jika user_id diisi/diubah
-            if ($employee->user_id) {
-                // Cari user tersebut
+            // Hanya sinkronisasi jika user_id diubah
+            if ($employee->isDirty('user_id') && $employee->user_id) {
                 $user = User::find($employee->user_id);
-                // Jika user punya unit kerja, salin ID-nya ke employee
                 if ($user && $user->unit_kerja_id) {
                     $employee->unit_kerja_id = $user->unit_kerja_id;
                 }

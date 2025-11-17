@@ -5,12 +5,13 @@ namespace App\Models;
 use App\Models\User;
 use App\Models\Employee;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Factories\HasFactory; // <-- Import ini
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo; // <-- Import ini
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Cuti extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     // Tambahkan 'status' agar bisa diisi
     protected $fillable = [
