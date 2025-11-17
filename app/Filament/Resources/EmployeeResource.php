@@ -68,10 +68,11 @@ class EmployeeResource extends Resource
                     ->maxLength(255),
 
                 // === KOLOM BARU DARI FORM PDF ===
-                TextInput::make('unit_kerja')
+                Select::make('unit_kerja_id')
                     ->label('Unit Kerja')
-                    ->required()
-                    ->maxLength(255),
+                    ->relationship('unitKerja', 'nama')
+                    ->required(),
+                // ================================
 
                 DatePicker::make('tanggal_bergabung')
                     ->label('Tanggal Bergabung (untuk hitung Masa Kerja)')

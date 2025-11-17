@@ -15,22 +15,10 @@ class DatabaseSeeder extends Seeder
     {
         // Buat user pegawai
         $userPegawai = User::create([
-            'name' => 'Budi Santoso',
-            'email' => 'budi@test.com',
+            'name' => 'Admin',
+            'email' => 'admin@test.com',
             'password' => bcrypt('password'),
-            'role' => 'pegawai',
-        ]);
-
-        // Buat employee dan tautkan ke user
-        Employee::create([
-            'user_id' => $userPegawai->id,
-            'nama' => 'Budi Santoso',
-            'email' => 'budi@test.com',
-            'NIP' => '123456789',
-            'jabatan' => 'Staff',
-            'unit_kerja' => 'IT',
-            'tanggal_bergabung' => now(),
-            'sisa_cuti_tahunan' => 12,
+            'role' => 'admin',
         ]);
     }
 }

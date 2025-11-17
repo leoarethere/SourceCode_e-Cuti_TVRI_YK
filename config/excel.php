@@ -205,7 +205,7 @@ return [
         */
         'pdf' => [
             'enabled' => true,
-            'driver' => 'mpdf', // atau 'mpdf', 'tcpdf'
+            'driver' => 'dompdf', // atau 'mpdf', 'tcpdf'
             'drivers' => [
                 'dompdf' => [
                     'path' => base_path('vendor/dompdf/dompdf'),

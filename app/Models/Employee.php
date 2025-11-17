@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Cuti;
 use App\Models\User;
+use App\Models\UnitKerja;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -27,7 +28,7 @@ class Employee extends Model
         'alamat_domisili',
         'NIP',
         'jabatan',
-        'unit_kerja',
+        'unit_kerja_id',
         'tanggal_bergabung',
         'sisa_cuti_tahunan',
     ];
@@ -46,5 +47,10 @@ class Employee extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function unitKerja(): BelongsTo
+    {
+        return $this->belongsTo(UnitKerja::class);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\User;
 use App\Models\Employee;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,13 +20,19 @@ class Cuti extends Model
         'tanggal_akhir',
         'alasan',
         'alamat_selama_cuti',
-        'status_sdm',
-        'tanggapan_sdm',
+        'status_atasan_langsung',
+        'tanggapan_atasan_langsung',
         'status_tata_usaha',
         'tanggapan_tata_usaha',
         'status_kepala',
         'tanggapan_kepala',
         'status_global',
+
+        // === TAMBAHKAN 3 BARIS INI ===
+        'atasan_langsung_approver_id',
+        'tata_usaha_approver_id',
+        'kepala_stasiun_approver_id',
+        // =============================
     ];
 
     /**
@@ -34,5 +41,25 @@ class Cuti extends Model
     public function employee(): BelongsTo // <-- Tipe relasinya
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    public function sdmApprover()
+    {
+        return $this->belongsTo(User::class, 'sdm_approver_id');
+    }
+
+    public function tataUsahaApprover()
+    {
+        return $this->belongsTo(User::class, 'tata_usaha_approver_id');
+    }
+
+    public function kepalaApprover()
+    {
+        return $this->belongsTo(User::class, 'kepala_stasiun_approver_id');
+    }
+    
+    public function atasanLangsungApprover()
+    {
+        return $this->belongsTo(User::class, 'atasan_langsung_approver_id');
     }
 }

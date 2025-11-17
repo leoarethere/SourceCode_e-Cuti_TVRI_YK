@@ -8,16 +8,17 @@ use App\Models\Cuti;
 use Filament\Tables;
 use App\Models\Employee;
 use Filament\Forms\Form;
+use App\Models\UnitKerja;
 use Filament\Tables\Table;
-use App\Exports\FormCutiExport;
 use Filament\Resources\Resource;
+use App\Services\FormCutiGenerator;
 use Filament\Tables\Actions\Action;
 use Illuminate\Support\Facades\Auth;
-use Maatwebsite\Excel\Facades\Excel;
 use Filament\Forms\Components\Select;
+// use Filament\Forms\Components\Fieldset;
 
-// === Komponen Form ===
-use Maatwebsite\Excel\Excel as ExcelTypes;
+// === Komponen Form ===use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Textarea;
 use Filament\Tables\Actions\EditAction;
 
@@ -36,6 +37,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Actions\BulkActionGroup;
 use Filament\Tables\Actions\DeleteBulkAction;
 use App\Filament\Resources\CutiResource\Pages;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Filament\Resources\CutiResource\Pages\EditCuti;
+use App\Filament\Resources\CutiResource\Pages\ListCutis;
+use App\Filament\Resources\CutiResource\Pages\CreateCuti;
 
 
 class CutiResource extends Resource
@@ -67,12 +72,12 @@ class CutiResource extends Resource
                 Select::make('jenis_cuti')
                     ->label('Jenis Cuti yang Diambil')
                     ->options([
-                        'Cuti Tahunan' => '1. Cuti Tahunan',
-                        'Cuti Besar' => '2. Cuti Besar',
-                        'Cuti Sakit' => '3. Cuti Sakit',
-                        'Cuti Melahirkan' => '4. Cuti Melahirkan',
-                        'Cuti Alasan Penting' => '5. Cuti Alasan Penting',
-                        'Cuti Luar Tanggungan' => '6. Cuti diluar Tanggungan Negara',
+                        'Cuti Tahunan' => 'Cuti Tahunan',
+                        'Cuti Besar' => 'Cuti Besar',
+                        'Cuti Sakit' => 'Cuti Sakit',
+                        'Cuti Melahirkan' => 'Cuti Melahirkan',
+                        'Cuti Alasan Penting' => 'Cuti Alasan Penting',
+                        'Cuti Luar Tanggungan' => 'Cuti di Luar Tanggungan Negara',
                     ])
                     ->required(),
 
@@ -92,7 +97,8 @@ class CutiResource extends Resource
                 Textarea::make('alamat_selama_cuti')
                     ->label('Alamat Selama Menjalankan Cuti')
                     ->required()
-                    ->columnSpanFull(),
+                    ->columnSpanFull()
+                // ==========================
             ]);
     }
 
@@ -134,37 +140,32 @@ class CutiResource extends Resource
             // === SEMUA AKSI DIGABUNG DI SINI ===
             ->actions([
                 
-                // === ACTION EXPORT FORM INDIVIDUAL PDF (BARU) ===
+                // === AKSI PDF (MANUAL TCPDF) ===
                 Action::make('exportFormPdf')
                     ->label('Cetak Form PDF')
                     ->icon('heroicon-o-printer')
                     ->color('danger')
                     ->action(function (Cuti $record) {
-                        return Excel::download(
-                            new FormCutiExport($record), 
-                            'form_cuti_' . $record->employee->nama . '_' . date('Y-m-d') . '.pdf',
-                            ExcelTypes::DOMPDF
-                        );
-                    }),
-                
-                // === ACTION EXPORT FORM INDIVIDUAL EXCEL (BARU) ===
-                Action::make('exportFormExcel')
-                    ->label('Cetak Form Excel')
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('success')
-                    ->action(function (Cuti $record) {
-                        return Excel::download(
-                            new FormCutiExport($record), 
-                            'form_cuti_' . $record->employee->nama . '_' . date('Y-m-d') . '.xlsx'
-                        );
+                        // Buat response streaming
+                        return new StreamedResponse(function () use ($record) {
+                            // Panggil generator kita
+                            // Generator akan otomatis membuat dan mengeluarkan (output) PDF
+                            app(FormCutiGenerator::class)->generate($record);
+                        }, 200, [
+                            'Content-Type' => 'application/pdf',
+                            'Content-Disposition' => 'inline; filename="form_cuti.pdf"',
+                        ]);
                     }),
 
                 // === AKSI TAHAP 1: KETUA TIM SDM ===
-                Action::make('Proses SDM')
-                    ->icon('heroicon-o-pencil')
-                    ->color('info')
+                Action::make('Proses Atasan Langsung')
+                    ->label('Proses (Ketua Unit)')
                     ->visible(function (Cuti $record) {
-                        return Auth::user()->role === 'sdm' && $record->status_global === 'Menunggu Persetujuan SDM';
+                        $user = Auth::user();
+                        // Cek apakah user yang login adalah KETUA dari unit kerja si pemohon cuti
+                        $isKetuaUnitIni = $record->employee->unitKerja && $record->employee->unitKerja->ketua_user_id === $user->id;
+                        
+                        return $isKetuaUnitIni && $record->status_global === 'Menunggu Persetujuan Atasan Langsung';
                     })
                     ->form([
                         Select::make('status_sdm')
@@ -177,6 +178,7 @@ class CutiResource extends Resource
                     ->action(function (Cuti $record, array $data): void {
                         $record->status_sdm = $data['status_sdm'];
                         $record->tanggapan_sdm = $data['tanggapan_sdm'];
+                        $record->sdm_approver_id = Auth::id();
 
                         if ($data['status_sdm'] === 'approved') {
                             $record->status_global = 'Menunggu Persetujuan Tata Usaha';
@@ -204,6 +206,7 @@ class CutiResource extends Resource
                     ->action(function (Cuti $record, array $data): void {
                         $record->status_tata_usaha = $data['status_tata_usaha'];
                         $record->tanggapan_tata_usaha = $data['tanggapan_tata_usaha'];
+                        $record->tata_usaha_approver_id = Auth::id();
 
                         if ($data['status_tata_usaha'] === 'approved') {
                             $record->status_global = 'Menunggu Persetujuan Kepala';
@@ -231,6 +234,7 @@ class CutiResource extends Resource
                     ->action(function (Cuti $record, array $data): void {
                         $record->status_kepala = $data['status_kepala'];
                         $record->tanggapan_kepala = $data['tanggapan_kepala'];
+                        $record->kepala_stasiun_approver_id = Auth::id();
                         $employee = $record->employee;
 
                         if ($data['status_kepala'] === 'approved') {
@@ -283,6 +287,17 @@ class CutiResource extends Resource
                     return $query->where('id', 0); // Jangan tampilkan apa-apa
                 }
                 return $query->where('employee_id', $user->employee->id);
+
+                // Kita asumsikan Anda menambah role 'ketua_tim' di UserResource
+                if ($user->role === 'ketua_tim') {
+                    $unitKerja = \App\Models\UnitKerja::where('ketua_user_id', $user->id)->first();
+                    
+                    if ($unitKerja) {
+                        return $query->whereHas('employee', function ($q) use ($unitKerja) {
+                            $q->where('unit_kerja_id', $unitKerja->id);
+                        })->where('status_global', 'Menunggu Persetujuan Atasan Langsung');
+                    }
+                }
             
             case 'sdm':
                 return $query->where('status_global', 'Menunggu Persetujuan SDM');

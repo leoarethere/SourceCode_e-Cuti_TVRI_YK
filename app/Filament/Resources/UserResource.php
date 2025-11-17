@@ -6,17 +6,21 @@ use Filament\Forms;
 use App\Models\User;
 use Filament\Tables;
 use Filament\Forms\Form;
+use App\Models\UnitKerja;
 use Filament\Tables\Table;
 use Filament\Resources\Resource;
 use Illuminate\Support\Facades\Auth;
 // Pastikan Anda menambahkan 'use' statement ini di atas
 use Illuminate\Support\Facades\Hash;
-use Filament\Forms\Components\Select; // Untuk Hashing password
+use Filament\Forms\Components\Select;
+use Filament\Tables\Columns\TextColumn;
+use Illuminate\Support\Facades\Storage;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\FileUpload;
 use Illuminate\Database\Eloquent\Builder;
 use App\Filament\Resources\UserResource\Pages;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use App\Filament\Resources\UserResource\RelationManagers;
+use App\Filament\Resources\UserResource\RelationManagers; // Untuk Hashing password
 
 class UserResource extends Resource
 {
@@ -40,15 +44,37 @@ class UserResource extends Resource
                 // === INI PERUBAHANNYA ===
                 Select::make('role')
                     ->options([
-                        'admin' => 'Admin (Super User)',
-                        'pegawai' => 'Pegawai',
-                        'sdm' => 'Ketua Tim SDM',
-                        'tata_usaha' => 'Kasubbag Tata Usaha',
+                        'admin' => 'Admin',
                         'kepala_stasiun' => 'Kepala Stasiun',
+                        'tata_usaha' => 'Kasubbag Tata Usaha',
+                        'ketua_tim' => 'Ketua Tim / Unit',
+                        'pegawai' => 'Pegawai',
+                        // 'sdm' => 'Ketua Tim SDM',
+                        
+                        
                     ])
                     ->required()
-                    ->default('pegawai'),
+                    ->default('pegawai')
+                    ->reactive(),
+
+                    Select::make('unit_kerja_id')
+                        ->label('Unit Kerja')
+                        ->options(UnitKerja::all()->pluck('nama', 'id'))
+                        ->searchable()
+                        ->visible(fn ($get) => in_array($get('role'), ['pegawai', 'ketua_tim'])), // Hanya muncul jika role Pegawai/Ketua
                 // ========================
+
+                // === TAMBAHKAN BLOK INI ===
+                FileUpload::make('signature_image_path')
+                    ->label('Upload Tanda Tangan (PNG)')
+                    ->image()
+                    ->imageEditor() // Izinkan user crop/rotate
+                    ->directory('signatures') // Simpan di 'storage/app/public/signatures'
+                    ->preserveFilenames()
+                    ->nullable()
+                    // Hanya tampilkan field ini jika rolenya adalah atasan
+                    ->visible(fn ($get) => in_array($get('role'), ['sdm', 'tata_usaha', 'kepala_stasiun'])),
+                // =========================
 
                 TextInput::make('password')
                     ->password()

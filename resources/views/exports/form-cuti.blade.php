@@ -2,59 +2,85 @@
 <html lang="id">
 <head>
     <meta charset="utf-8">
-    <title>Form Cuti - {{ $cuti->employee->nama }}</title>
+    <title>Form Cuti - {{ $cuti->employee->nama ?? 'Karyawan' }}</title>
     <style>
-        /* --- Konfigurasi Cetak Sesuai Permintaan --- */
+        /* CSS ini disederhanakan AGAR KOMPATIBEL DENGAN DOMPDF */
         @page {
             size: A4;
-            /* Margin 30mm di semua sisi */
-            margin: 30mm; 
+            margin: 25mm;
         }
-
         body {
-            font-family: Arial, sans-serif;
+            font-family: "Times New Roman", Times, serif;
             font-size: 11pt;
-            line-height: 1.4;
+            line-height: 1.3;
             color: #000;
         }
-        
-        /* Tabel Master untuk Layout Utama */
-        .master-table {
+
+        /* Hilangkan semua styling @media screen/print */
+
+        table {
             width: 100%;
             border-collapse: collapse;
-            border: 1px solid #000;
         }
-        .master-table > tbody > tr > td {
+        
+        /* Styling untuk Header Kop Surat */
+        .header-table td {
             vertical-align: top;
-            border: 1px solid #000;
         }
-
-        /* Kolom Header di Kiri (DATA PEGAWAI, dll) */
-        .header-col {
-            width: 35%;
+        .logo {
+            height: 70px; /* Perkecil sedikit */
+            width: auto;
+        }
+        .company-info {
+            text-align: center;
+        }
+        .company-name {
+            font-size: 14pt;
             font-weight: bold;
-            padding: 8px;
-            background-color: #f0f0f0; /* Latar abu-abu untuk header */
+        }
+        .company-address {
+            font-size: 10pt;
+        }
+        .company-contact {
+            font-size: 9pt;
+            font-style: italic;
         }
 
-        /* Kolom Data di Kanan */
+        .document-title {
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            font-size: 14pt;
+            font-weight: bold;
+            text-decoration: underline;
+        }
+
+        /* Tabel Data Utama */
+        .master-table {
+            border: 1px solid #000;
+            margin-bottom: 15px;
+        }
+        .master-table th, .master-table td {
+            border: 1px solid #000;
+            padding: 6px 8px;
+            vertical-align: top;
+        }
+        .header-col {
+            width: 30%;
+            font-weight: bold;
+            background-color: #f0f0f0;
+        }
         .data-col {
-            width: 65%;
-            padding: 0; /* Padding 0 agar tabel nested pas */
+            width: 70%;
         }
 
-        /* Tabel Data di dalam Kolom Kanan */
+        /* Tabel data di dalam kolom kanan (untuk styling rapi) */
         .data-table {
             width: 100%;
-            border-collapse: collapse;
         }
         .data-table td {
-            padding: 8px;
-            border-bottom: 1px solid #ddd; /* Garis pemisah antar data */
-            vertical-align: top;
-        }
-        .data-table tr:last-child td {
-            border-bottom: none; /* Hapus border di baris terakhir */
+            border: none; /* Hilangkan border tabel dalam */
+            padding: 4px 0; /* Padding vertikal kecil */
         }
         .data-table .label {
             width: 40%;
@@ -64,161 +90,214 @@
             width: 60%;
         }
 
-        h2 {
-            text-align: center;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            border-bottom: 2px solid #000;
-            padding-bottom: 10px;
-            margin-bottom: 25px;
+        .content-box {
+            padding: 8px;
+            min-height: 60px;
+            font-size: 11pt;
+            line-height: 1.5;
         }
 
-        /* Blok Tanda Tangan */
-        .signature-block {
-            padding: 15px;
-            text-align: left;
-            margin-top: 20px;
+        /* Tanda Tangan (menggunakan tabel, bukan float) */
+        .signature-table {
+            margin-top: 30px;
+        }
+        .signature-table td {
+            width: 50%;
+            text-align: center;
+            vertical-align: top;
+            padding: 0 15px;
         }
         .signature-space {
-            height: 70px; /* Ruang untuk TTD */
-            width: 200px;
-            border: 1px dashed #ccc;
-            margin-top: 5px;
+            height: 60px; /* Ruang untuk TTD */
+            border-bottom: 1px solid #000;
             margin-bottom: 5px;
-            /* Tampilkan placeholder [foto tanda tangan] seperti di konsep */
-            text-align: center;
-            line-height: 70px;
-            color: #999;
+        }
+        .signature-name {
+            font-weight: bold;
+        }
+        .signature-title {
+            font-size: 10pt;
             font-style: italic;
         }
+
+        .footer {
+            margin-top: 25px;
+            font-size: 9pt;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #ccc;
+            padding-top: 8px;
+        }
+
     </style>
 </head>
 <body>
+    
+    <table class-="header-table" style="border: none; margin-bottom: 15px; border-bottom: 3px double #000; padding-bottom: 15px;">
+        <tr>
+            <td style="width: 20%; text-align: left;">
+                <img src="{{ public_path('images/logo-tvri.png') }}" alt="Logo TVRI" class="logo">
+            </td>
+            
+            <td style="width: 60%;" class="company-info">
+                <div class="company-name">TELEVISI REPUBLIK INDONESIA (TVRI)</div>
+                <div class="company-name" style="font-size: 14pt;"><strong>KANTOR WILAYAH TVRI JOGJA</strong></div>
+                <div class="company-address">Jl. Magelang Km. 5, Kutu Dukuh, Sinduadi, Kec. Mlati, Kabupaten Sleman</div>
+                <div class="company-address">Daerah Istimewa Yogyakarta 55284</div>
+                <div class="company-contact">Telp: (0274) 623222 | Email: kanwiljogja@tvri.go.id | Website: www.tvri.go.id</div>
+            </td>
 
-    <h2>FORMULIR PERMINTAAN DAN PEMBERIAN CUTI</h2> 
+            <td style="width: 20%; text-align: right;">
+                </td>
+        </tr>
+    </table>
+
+
+    <div class="document-title">
+        SURAT PERMOHONAN CUTI KARYAWAN
+    </div>
+
+    <table style="width: 100%; margin-bottom: 15px; font-size: 11pt;">
+        <tr>
+            <td width="20%"><strong>Nomor Surat</strong></td>
+            <td>: SC/{{ date('Y') }}/{{ isset($cuti->id) ? str_pad($cuti->id, 4, '0', STR_PAD_LEFT) : '0000' }}</td>
+        </tr>
+        <tr>
+            <td><strong>Tanggal Pengajuan</strong></td>
+            <td>: {{ \Carbon\Carbon::parse($cuti->created_at)->isoFormat('D MMMM Y') }}</td>
+        </tr>
+    </table>
 
     <table class="master-table">
         <tr>
-            <td class="header-col">DATA PEGAWAI</td> 
+            <td class="header-col">DATA PEGAWAI</td>
             <td class="data-col">
                 <table class="data-table">
                     <tr>
-                        <td class="label">Nama</td>
-                        <td class="value">{{ $cuti->employee->nama }}</td> 
+                        <td class="label">Nama Lengkap</td>
+                        <td class="value">{{ $cuti->employee->nama ?? 'Data tidak tersedia' }}</td>
                     </tr>
                     <tr>
-                        <td class="label">Nip</td>
-                        <td class="value">{{ $cuti->employee->NIP }}</td> 
+                        <td class="label">NIP</td>
+                        <td class="value">{{ $cuti->employee->NIP ?? '-' }}</td>
                     </tr>
                     <tr>
                         <td class="label">Jabatan</td>
-                        <td class="value">{{ $cuti->employee->jabatan }}</td> 
+                        <td class="value">{{ $cuti->employee->jabatan ?? '-' }}</td>
                     </tr>
                     <tr>
                         <td class="label">Unit Kerja</td>
-                        <td class="value">{{ $cuti->employee->unit_kerja }}</td> 
+                        <td class="value">{{ $cuti->employee->unit_kerja ?? '-' }}</td>
                     </tr>
                     <tr>
                         <td class="label">Nomor Telepon</td>
-                        <td class="value">{{ $cuti->employee->telp ?? '-' }}</td> 
-                    </tr>
-                    <tr>
-                        <td class="label">Sisa Cuti</td>
-                        <td class="value">{{ $cuti->employee->sisa_cuti_tahunan }} hari</td> 
+                        <td class="value">{{ $cuti->employee->telp ?? '-' }}</td>
                     </tr>
                 </table>
             </td>
         </tr>
 
         <tr>
-            <td class="header-col">DATA PENGAJUAN CUTI</td> 
+            <td class="header-col">DATA PENGAJUAN CUTI</td>
             <td class="data-col">
                 <table class="data-table">
                     <tr>
-                        <td class="label">Tanggal Pengajuan</td>
-                        <td class="value">{{ \Carbon\Carbon::parse($cuti->created_at)->isoFormat('D MMMM Y') }}</td> 
-                    </tr>
-                    <tr>
                         <td class="label">Jenis Cuti</td>
-                        <td class="value">{{ $cuti->jenis_cuti }}</td> 
-                    </tr>
-                    <tr>
-                        <td class="label">Alasan Cuti</td>
-                        <td class="value">{{ $cuti->alasan }}</td> 
+                        <td class="value">{{ $cuti->jenis_cuti ?? 'Cuti Tahunan' }}</td>
                     </tr>
                     <tr>
                         <td class="label">Tanggal Mulai</td>
-                        <td class="value">{{ \Carbon\Carbon::parse($cuti->tanggal_mulai)->isoFormat('D MMMM Y') }}</td> 
+                        <td class="value">
+                            @if(isset($cuti->tanggal_mulai))
+                                {{ \Carbon\Carbon::parse($cuti->tanggal_mulai)->isoFormat('D MMMM Y') }}
+                            @else - @endif
+                        </td>
                     </tr>
                     <tr>
                         <td class="label">Tanggal Akhir</td>
-                        <td class="value">{{ \Carbon\Carbon::parse($cuti->tanggal_akhir)->isoFormat('D MMMM Y') }}</td> 
-                    </tr>
-                    <tr>
-                        <td class="label">Alamat Selama Cuti</td>
-                        <td class="value">{{ $cuti->alamat_selama_cuti }}</td> 
-                    </tr>
-                </table>
-            </td>
-        </tr>
-
-        <tr>
-            <td class="header-col">DATA TAMBAHAN</td> 
-            <td class="data-col">
-                <table class="data-table">
-                    <tr>
-                        <td class="label">Masa Kerja</td>
-                        <td class="value">{{ $masaKerja }} Tahun</td> 
+                        <td class="value">
+                            @if(isset($cuti->tanggal_akhir))
+                                {{ \Carbon\Carbon::parse($cuti->tanggal_akhir)->isoFormat('D MMMM Y') }}
+                            @else - @endif
+                        </td>
                     </tr>
                     <tr>
                         <td class="label">Lama Cuti</td>
-                        <td class="value">{{ $lamaCuti }} hari</td> 
+                        <td class="value">
+                            @if(isset($lamaCuti))
+                                {{ $lamaCuti }} Hari
+                            @else - @endif
+                        </td>
                     </tr>
                 </table>
             </td>
         </tr>
 
         <tr>
-            <td class="header-col">DATA PERSETUJUAN</td> 
+            <td class="header-col">ALASAN CUTI</td>
             <td class="data-col">
-                <table class="data-table">
-                    <tr>
-                        <td class="label">Status Persetujuan SDM</td>
-                        <td class="value">{{ $cuti->status_sdm }}</td> 
-                    </tr>
-                    <tr>
-                        <td class="label">Tanggapan Atau Catatan Dari Ketua SDM</td>
-                        <td class="value">{{ $cuti->tanggapan_sdm ?? '-' }}</td> 
-                    </tr>
-                    <tr>
-                        <td class="label">Status Persetujuan Kasubbag Tata Usaha</td>
-                        <td class="value">{{ $cuti->status_tata_usaha }}</td> 
-                    </tr>
-                    <tr>
-                        <td class="label">Tanggapan Atau Catatan Dari Kasubbag Tata Usaha</td>
-                        <td class="value">{{ $cuti->tanggapan_tata_usaha ?? '-' }}</td> 
-                    </tr>
-                    <tr>
-                        <td class="label">Status Persetujuan Kepala Stasiun</td>
-                        <td class="value">{{ $cuti->status_kepala }}</td> 
-                    </tr>
-                    <tr>
-                        <td class="label">Tanggapan Atau Catatan Dari Kepala Stasiun</td>
-                        <td class="value">{{ $cuti->tanggapan_kepala ?? '-' }}</td> 
-                    </tr>
-                </table>
-
-                <div class="signature-block">
-                    Mengetahui,<br>
-                    Kepala Stasiun Tvri Yogyakarta
-                    <div class="signature-space">[foto tanda tangan]</div> 
-                    <strong>[nama kepala stasiun]</strong><br> 
-                    <strong>[nip kepala stasiun]</strong> 
+                <div class="content-box">
+                    {!! nl2br(e($cuti->alasan ?? 'Alasan tidak tersedia')) !!}
                 </div>
             </td>
         </tr>
 
+        <tr>
+            <td class="header-col">INFORMASI TAMBAHAN</td>
+            <td class="data-col">
+                <table class="data-table">
+                    <tr>
+                        <td class="label">Sisa Cuti Tahunan</td>
+                        <td class="value">{{ $cuti->employee->sisa_cuti_tahunan ?? '0' }} hari</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Tanggal Masuk Kembali</td>
+                        <td class="value">
+                            @if(isset($cuti->tanggal_akhir))
+                                @php
+                                    $returnDate = \Carbon\Carbon::parse($cuti->tanggal_akhir)->addDay();
+                                @endphp
+                                {{ $returnDate->isoFormat('D MMMM Y') }}
+                            @else - @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="label">Alamat Selama Cuti</td>
+                        <td class="value">{{ $cuti->alamat_selama_cuti ?? '-' }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+
     </table>
+
+    <table class="signature-table">
+        <tr>
+            <td>
+                <div class="signature-name">{{ $cuti->employee->nama ?? '________________' }}</div>
+                <div class="signature-title">Pemohon</div>
+                <div class="signature-space"></div> </td>
+            <td>
+                <div class="signature-name">[Nama Ketua Tim SDM]</div>
+                <div class="signature-title">Ketua Tim SDM</div>
+                <div class="signature-space"></div> </td>
+        </tr>
+        <tr>
+            <td style="padding-top: 25px;">
+                <div class="signature-name">[Nama Kasubbag Tata Usaha]</div>
+                <div class="signature-title">Kasubbag Tata Usaha</div>
+                <div class="signature-space"></div> </td>
+            <td style="padding-top: 25px;">
+                <div class="signature-name">[Nama Kepala Stasiun]</div>
+                <div class="signature-title">Kepala Stasiun</div>
+                <div class="signature-space"></div> </td>
+        </tr>
+    </table>
+
+    <div class="footer">
+        Dokumen ini dicetak secara elektronik dari Sistem E-Cuti TVRI Yogyakarta<br>
+        Tanggal cetak: {{ date('d/m/Y H:i:s') }}
+    </div>
 
 </body>
 </html>
