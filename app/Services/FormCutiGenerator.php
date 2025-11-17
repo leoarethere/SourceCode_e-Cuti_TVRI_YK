@@ -86,20 +86,17 @@ class FormCutiGenerator extends TCPDF
     {
         $this->SetFont('helvetica', 'B', 16);
         
-        // Logo TVRI (jika ada)
-        // $logoPath = public_path('images/logo-tvri.png');
-        // if (file_exists($logoPath)) {
-        //     $this->Image($logoPath, 20, 15, 30, 0, '', '', '', false, 300, '', false, false, 0);
-        // }
-        
         // Kop Surat
         $this->SetXY(20, 20);
-        $this->Cell(0, 8, 'LEMBAGA PENYIARAN PUBLIK TELEVISI REPUBLIK INDONESIA', 0, 1, 'C');
+        $this->Cell(0, 8, 'LEMBAGA PENYIARAN PUBLIK', 0, 1, 'C');
+        $this->SetFont('helvetica', 'B', 18);
+        $this->Cell(0, 10, 'TELEVISI REPUBLIK INDONESIA', 0, 1, 'C');
         $this->SetFont('helvetica', 'B', 14);
-        $this->Cell(0, 8, 'STASIUN YOGYAKARTA', 0, 1, 'C');
+        $this->Cell(0, 7, 'STASIUN YOGYAKARTA', 0, 1, 'C');
         
         $this->SetFont('helvetica', '', 9);
-        $this->Cell(0, 5, 'Jl. Magelang Km. 4,5 Yogyakarta 55284 | Kontak: (0274) 514402, 514403, 514909 | Email: yogyakarta@tvri.go.id', 0, 1, 'C');
+        $this->Cell(0, 5, 'Jl. Magelang Km. 4, Yogyakarta 55241', 0, 1, 'C');
+        $this->Cell(0, 5, 'Telp: (0274) 565810 | Email: yogyakarta@tvri.go.id', 0, 1, 'C');
         
         // Garis pemisah
         $this->SetLineWidth(0.8);
@@ -125,10 +122,9 @@ class FormCutiGenerator extends TCPDF
         $kepalaNama = '[Nama Kepala Stasiun]';
         $kepalaNip = '[NIP Kepala Stasiun]';
 
-        // === PERBAIKAN 1: Ambil Nama Unit Kerja dari Relasi ===
-        $unitKerja = $this->cuti->employee->unitKerja; // Ambil relasi
-        $namaUnit = $unitKerja ? $unitKerja->nama : '-'; // Ambil nama atau strip
-        // ======================================================
+        // Ambil Nama Unit Kerja dari Relasi
+        $unitKerja = $this->cuti->employee->unitKerja; 
+        $namaUnit = $unitKerja ? $unitKerja->nama : '-'; 
 
         if ($kepala && $kepala->employee) {
             $kepalaNama = $kepala->employee->nama;
@@ -162,6 +158,10 @@ class FormCutiGenerator extends TCPDF
             'rejected' => 'DITOLAK'
         ];
         
+        // Status Atasan Langsung
+        $statusAtasan = $this->cuti->status_atasan_langsung; 
+        $tanggapanAtasan = $this->cuti->tanggapan_atasan_langsung;
+
         // Hitung tanggal kembali
         $returnDateHtml = '-';
         if (isset($this->cuti->tanggal_akhir)) {
@@ -177,13 +177,6 @@ class FormCutiGenerator extends TCPDF
             $days = $start->diffInDays($end) + 1;
             $lamaCutiHtml = $days . ' Hari';
         }
-
-        // === PERBAIKAN 2: Menggunakan 'status_atasan_langsung' ===
-        // Kita ambil status dari kolom baru, bukan 'status_sdm' lagi
-        $statusAtasan = $this->cuti->status_atasan_langsung; 
-        $tanggapanAtasan = $this->cuti->tanggapan_atasan_langsung;
-        // =========================================================
-
 
         $html = '
         <style>
@@ -244,7 +237,9 @@ class FormCutiGenerator extends TCPDF
             <tr class="row-separator">
                 <td class="label-cell">Ketua Tim '.e($namaUnit).'</td>
                 <td class="value-cell">
-                    <span class="status-badge status-'.strtolower($statusAtasan).'">'.e($statusLabels[$statusAtasan] ?? strtoupper($statusAtasan)).'</span>
+                    <span class="status-badge status-'.strtolower($statusAtasan).'">
+                        '. ($statusAtasan == 'pending' ? 'MENUNGGU PERSETUJUAN' : e($statusLabels[$statusAtasan] ?? strtoupper($statusAtasan))) .'
+                    </span>
                     '.($tanggapanAtasan ? '<br><em style="color: #6b7280; font-size: 9pt;">Catatan: '.e($tanggapanAtasan).'</em>' : '').'
                 </td>
             </tr>
@@ -252,14 +247,18 @@ class FormCutiGenerator extends TCPDF
             <tr class="row-separator">
                 <td class="label-cell">Kasubbag Tata Usaha</td>
                 <td class="value-cell">
-                    <span class="status-badge status-'.strtolower($this->cuti->status_tata_usaha).'">'.e($statusLabels[$this->cuti->status_tata_usaha] ?? strtoupper($this->cuti->status_tata_usaha)).'</span>
+                    <span class="status-badge status-'.strtolower($this->cuti->status_tata_usaha).'">
+                        '. ($this->cuti->status_tata_usaha == 'pending' ? 'MENUNGGU PERSETUJUAN' : e($statusLabels[$this->cuti->status_tata_usaha] ?? strtoupper($this->cuti->status_tata_usaha))) .'
+                    </span>
                     '.($this->cuti->tanggapan_tata_usaha ? '<br><em style="color: #6b7280; font-size: 9pt;">Catatan: '.e($this->cuti->tanggapan_tata_usaha).'</em>' : '').'
                 </td>
             </tr>
             <tr>
                 <td class="label-cell">Kepala Stasiun</td>
                 <td class="value-cell">
-                    <span class="status-badge status-'.strtolower($this->cuti->status_kepala).'">'.e($statusLabels[$this->cuti->status_kepala] ?? strtoupper($this->cuti->status_kepala)).'</span>
+                    <span class="status-badge status-'.strtolower($this->cuti->status_kepala).'">
+                        '. ($this->cuti->status_kepala == 'pending' ? 'MENUNGGU PERSETUJUAN' : e($statusLabels[$this->cuti->status_kepala] ?? strtoupper($this->cuti->status_kepala))) .'
+                    </span>
                     '.($this->cuti->tanggapan_kepala ? '<br><em style="color: #6b7280; font-size: 9pt;">Catatan: '.e($this->cuti->tanggapan_kepala).'</em>' : '').'
                 </td>
             </tr>
@@ -287,6 +286,8 @@ class FormCutiGenerator extends TCPDF
         </div>
 
         <div class="footer-text">
+            <strong>LEMBAGA PENYIARAN PUBLIK TELEVISI REPUBLIK INDONESIA</strong><br>
+            Stasiun Yogyakarta<br>
             <em>Dokumen dicetak secara elektronik pada '.Carbon::now()->isoFormat('dddd, D MMMM Y [pukul] HH:mm').' WIB</em><br>
             <span style="font-size: 7pt; color: #9ca3af;">Sistem E-Cuti TVRI Yogyakarta v1.0</span>
         </div>

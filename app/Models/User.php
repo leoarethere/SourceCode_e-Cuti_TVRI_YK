@@ -6,15 +6,17 @@ namespace App\Models;
 use App\Models\Employee;
 use App\Models\UnitKerja;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Notifications\Notifiable; // <-- TAMBAHKAN INI
-use Illuminate\Database\Eloquent\Relations\HasOne; // <-- TAMBAHKAN INI
-use Illuminate\Foundation\Auth\User as Authenticatable; // Pastikan ini ada jika belum
-use Illuminate\Database\Eloquent\Factories\HasFactory; // Import model UnitKerja
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
+    use SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -63,22 +65,21 @@ class User extends Authenticatable
         return $this->belongsTo(UnitKerja::class);
     }
     
-    /**
-     * "The Magic Logic"
-     * Fungsi ini jalan otomatis setiap kali User disimpan (Create/Update)
-     */
+    // Tambahkan di dalam fungsi booted() yang sudah ada
     protected static function booted(): void
     {
         static::saved(function (User $user) {
-            // Cek 1: Apakah dia Ketua Tim?
-            // Cek 2: Apakah dia dipilihkan Unit Kerja?
+            // LOGIKA 1: Update Ketua Unit (Yang sudah Anda buat)
             if ($user->role === 'ketua_tim' && $user->unit_kerja_id) {
-                
-                // CARA KERJA:
-                // Cari Unit Kerja yang dipilih, lalu update kolom 'ketua_user_id' 
-                // dengan ID user ini.
                 UnitKerja::where('id', $user->unit_kerja_id)
                     ->update(['ketua_user_id' => $user->id]);
+            }
+            
+            // LOGIKA 2 (BARU): Sinkronisasi ke Employee
+            // Jika user ini punya profil employee, update juga unit kerjanya
+            if ($user->employee) {
+                $user->employee->unit_kerja_id = $user->unit_kerja_id;
+                $user->employee->saveQuietly(); // Simpan tanpa memicu event loop
             }
         });
     }
