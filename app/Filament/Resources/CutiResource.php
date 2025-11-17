@@ -217,24 +217,33 @@ class CutiResource extends Resource
                     }),
                 
                 // === AKSI TAHAP 3: KEPALA STASIUN  ===
-                Action::make('Proses Kepala')
-                    ->icon('heroicon-o-check')
-                    ->color('success')
+                Action::make('Proses Atasan Langsung')
+                    ->label('Proses (Ketua Unit)')
+                    ->icon('heroicon-o-pencil') // Tambahkan ikon
+                    ->color('info')
                     ->visible(function (Cuti $record) {
-                        return Auth::user()->role === 'kepala_stasiun' && $record->status_global === 'Menunggu Persetujuan Kepala';
+                        $user = Auth::user();
+                        
+                        // Hanya muncul jika User adalah Ketua dari Unit si Pegawai
+                        // DAN Statusnya 'Menunggu Persetujuan Atasan Langsung'
+                        $isKetuaUnit = $record->employee->unitKerja 
+                                    && $record->employee->unitKerja->ketua_user_id === $user->id;
+                                    
+                        return $isKetuaUnit && $record->status_global === 'Menunggu Persetujuan Atasan Langsung';
                     })
                     ->form([
-                        Select::make('status_kepala')
-                            ->label('Keputusan Kepala Stasiun')
+                        // Update nama field ke 'status_atasan_langsung'
+                        Select::make('status_atasan_langsung')
+                            ->label('Persetujuan Ketua Unit')
                             ->options(['approved' => 'Disetujui', 'rejected' => 'Ditolak'])
                             ->required(),
-                        Textarea::make('tanggapan_kepala')
+                        Textarea::make('tanggapan_atasan_langsung')
                             ->label('Catatan / Tanggapan'),
                     ])
                     ->action(function (Cuti $record, array $data): void {
-                        $record->status_kepala = $data['status_kepala'];
-                        $record->tanggapan_kepala = $data['tanggapan_kepala'];
-                        $record->kepala_stasiun_approver_id = Auth::id();
+                        $record->status_atasan_langsung = $data['status_atasan_langsung'];
+                        $record->tanggapan_atasan_langsung = $data['tanggapan_atasan_langsung'];
+                        $record->atasan_langsung_approver_id = Auth::id();
                         $employee = $record->employee;
 
                         if ($data['status_kepala'] === 'approved') {
@@ -282,26 +291,22 @@ class CutiResource extends Resource
 
         switch ($user->role) {
             case 'pegawai':
-                // Cek dulu apakah $user->employee ada, jika tidak, kembalikan 'kosong'
-                if (!$user->employee) {
-                    return $query->where('id', 0); // Jangan tampilkan apa-apa
-                }
+                if (!$user->employee) { return $query->where('id', 0); }
                 return $query->where('employee_id', $user->employee->id);
-
-                // Kita asumsikan Anda menambah role 'ketua_tim' di UserResource
-                if ($user->role === 'ketua_tim') {
-                    $unitKerja = \App\Models\UnitKerja::where('ketua_user_id', $user->id)->first();
-                    
-                    if ($unitKerja) {
-                        return $query->whereHas('employee', function ($q) use ($unitKerja) {
-                            $q->where('unit_kerja_id', $unitKerja->id);
-                        })->where('status_global', 'Menunggu Persetujuan Atasan Langsung');
-                    }
+            
+            // GANTI CASE 'sdm' MENJADI 'ketua_tim'
+            case 'ketua_tim': 
+                // 1. Cari Unit Kerja dari User ini
+                $unitKerja = \App\Models\UnitKerja::where('ketua_user_id', $user->id)->first();
+                
+                if ($unitKerja) {
+                    // 2. Tampilkan cuti dari pegawai di unit ini DAN statusnya pas
+                    return $query->whereHas('employee', function ($q) use ($unitKerja) {
+                        $q->where('unit_kerja_id', $unitKerja->id);
+                    })->where('status_global', 'Menunggu Persetujuan Atasan Langsung');
                 }
-            
-            case 'sdm':
-                return $query->where('status_global', 'Menunggu Persetujuan SDM');
-            
+                return $query->where('id', 0); // Jika bukan ketua unit manapun
+
             case 'tata_usaha':
                 return $query->where('status_global', 'Menunggu Persetujuan Tata Usaha');
             

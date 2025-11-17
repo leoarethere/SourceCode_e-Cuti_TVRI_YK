@@ -53,4 +53,19 @@ class Employee extends Model
     {
         return $this->belongsTo(UnitKerja::class);
     }
+
+    protected static function booted(): void
+    {
+        static::saving(function ($employee) {
+            // Jika user_id diisi/diubah
+            if ($employee->user_id) {
+                // Cari user tersebut
+                $user = User::find($employee->user_id);
+                // Jika user punya unit kerja, salin ID-nya ke employee
+                if ($user && $user->unit_kerja_id) {
+                    $employee->unit_kerja_id = $user->unit_kerja_id;
+                }
+            }
+        });
+    }
 }
