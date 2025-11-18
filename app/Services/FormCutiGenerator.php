@@ -86,12 +86,6 @@ class FormCutiGenerator extends TCPDF
     {
         $this->SetFont('helvetica', 'B', 16);
         
-        // Logo TVRI (jika ada)
-        // $logoPath = public_path('images/logo-tvri.png');
-        // if (file_exists($logoPath)) {
-        //     $this->Image($logoPath, 20, 15, 30, 0, '', '', '', false, 300, '', false, false, 0);
-        // }
-        
         // Kop Surat
         $this->SetXY(20, 20);
         $this->Cell(0, 8, 'LEMBAGA PENYIARAN PUBLIK', 0, 1, 'C');
@@ -128,10 +122,9 @@ class FormCutiGenerator extends TCPDF
         $kepalaNama = '[Nama Kepala Stasiun]';
         $kepalaNip = '[NIP Kepala Stasiun]';
 
-        // === PERBAIKAN 1: Ambil Nama Unit Kerja dari Relasi ===
-        $unitKerja = $this->cuti->employee->unitKerja; // Ambil relasi
-        $namaUnit = $unitKerja ? $unitKerja->nama : '-'; // Ambil nama atau strip
-        // ======================================================
+        // Ambil Nama Unit Kerja dari Relasi
+        $unitKerja = $this->cuti->employee->unitKerja; 
+        $namaUnit = $unitKerja ? $unitKerja->nama : '-'; 
 
         if ($kepala && $kepala->employee) {
             $kepalaNama = $kepala->employee->nama;
@@ -165,6 +158,10 @@ class FormCutiGenerator extends TCPDF
             'rejected' => 'DITOLAK'
         ];
         
+        // Status Atasan Langsung
+        $statusAtasan = $this->cuti->status_atasan_langsung; 
+        $tanggapanAtasan = $this->cuti->tanggapan_atasan_langsung;
+
         // Hitung tanggal kembali
         $returnDateHtml = '-';
         if (isset($this->cuti->tanggal_akhir)) {
@@ -180,13 +177,6 @@ class FormCutiGenerator extends TCPDF
             $days = $start->diffInDays($end) + 1;
             $lamaCutiHtml = $days . ' Hari';
         }
-
-        // === PERBAIKAN 2: Menggunakan 'status_atasan_langsung' ===
-        // Kita ambil status dari kolom baru, bukan 'status_sdm' lagi
-        $statusAtasan = $this->cuti->status_atasan_langsung; 
-        $tanggapanAtasan = $this->cuti->tanggapan_atasan_langsung;
-        // =========================================================
-
 
         $html = '
         <style>
@@ -247,7 +237,9 @@ class FormCutiGenerator extends TCPDF
             <tr class="row-separator">
                 <td class="label-cell">Ketua Tim '.e($namaUnit).'</td>
                 <td class="value-cell">
-                    <span class="status-badge status-'.strtolower($statusAtasan).'">'.e($statusLabels[$statusAtasan] ?? strtoupper($statusAtasan)).'</span>
+                    <span class="status-badge status-'.strtolower($statusAtasan).'">
+                        '. ($statusAtasan == 'pending' ? 'MENUNGGU PERSETUJUAN' : e($statusLabels[$statusAtasan] ?? strtoupper($statusAtasan))) .'
+                    </span>
                     '.($tanggapanAtasan ? '<br><em style="color: #6b7280; font-size: 9pt;">Catatan: '.e($tanggapanAtasan).'</em>' : '').'
                 </td>
             </tr>
@@ -255,14 +247,18 @@ class FormCutiGenerator extends TCPDF
             <tr class="row-separator">
                 <td class="label-cell">Kasubbag Tata Usaha</td>
                 <td class="value-cell">
-                    <span class="status-badge status-'.strtolower($this->cuti->status_tata_usaha).'">'.e($statusLabels[$this->cuti->status_tata_usaha] ?? strtoupper($this->cuti->status_tata_usaha)).'</span>
+                    <span class="status-badge status-'.strtolower($this->cuti->status_tata_usaha).'">
+                        '. ($this->cuti->status_tata_usaha == 'pending' ? 'MENUNGGU PERSETUJUAN' : e($statusLabels[$this->cuti->status_tata_usaha] ?? strtoupper($this->cuti->status_tata_usaha))) .'
+                    </span>
                     '.($this->cuti->tanggapan_tata_usaha ? '<br><em style="color: #6b7280; font-size: 9pt;">Catatan: '.e($this->cuti->tanggapan_tata_usaha).'</em>' : '').'
                 </td>
             </tr>
             <tr>
                 <td class="label-cell">Kepala Stasiun</td>
                 <td class="value-cell">
-                    <span class="status-badge status-'.strtolower($this->cuti->status_kepala).'">'.e($statusLabels[$this->cuti->status_kepala] ?? strtoupper($this->cuti->status_kepala)).'</span>
+                    <span class="status-badge status-'.strtolower($this->cuti->status_kepala).'">
+                        '. ($this->cuti->status_kepala == 'pending' ? 'MENUNGGU PERSETUJUAN' : e($statusLabels[$this->cuti->status_kepala] ?? strtoupper($this->cuti->status_kepala))) .'
+                    </span>
                     '.($this->cuti->tanggapan_kepala ? '<br><em style="color: #6b7280; font-size: 9pt;">Catatan: '.e($this->cuti->tanggapan_kepala).'</em>' : '').'
                 </td>
             </tr>

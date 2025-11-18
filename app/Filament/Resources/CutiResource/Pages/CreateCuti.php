@@ -70,6 +70,18 @@ class CreateCuti extends CreateRecord
         // 3. Set Status Global Awal
         $data['status_global'] = 'Menunggu Persetujuan Atasan Langsung';
 
+        // Validasi lampiran untuk Cuti Sakit
+        if ($data['jenis_cuti'] === 'Cuti Sakit' && empty($data['lampiran_link'])) {
+            Notification::make()
+                ->title('Error Validasi')
+                ->body('Lampiran surat dokter wajib dilampirkan untuk Cuti Sakit.')
+                ->danger()
+                ->persistent()
+                ->send();
+            
+            $this->halt();
+        }
+
         return $data;
     }
 

@@ -8,18 +8,25 @@ use Filament\Tables;
 use Filament\Forms\Form;
 use App\Models\UnitKerja;
 use Filament\Tables\Table;
+use Filament\Actions\EditAction;
 use Filament\Resources\Resource;
-use Illuminate\Support\Facades\Auth;
 // Pastikan Anda menambahkan 'use' statement ini di atas
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
 use Illuminate\Support\Facades\Storage;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Forms\Components\FileUpload;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Tables\Actions\BulkActionGroup;
+use Filament\Tables\Actions\DeleteBulkAction;
 use App\Filament\Resources\UserResource\Pages;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Filament\Resources\UserResource\Pages\EditUser;
+use App\Filament\Resources\UserResource\Pages\ListUsers;
+use App\Filament\Resources\UserResource\Pages\CreateUser;
 use App\Filament\Resources\UserResource\RelationManagers; // Untuk Hashing password
 
 class UserResource extends Resource
@@ -50,17 +57,25 @@ class UserResource extends Resource
                         'ketua_tim' => 'Ketua Tim / Unit',
                         'pegawai' => 'Pegawai',
                         // 'sdm' => 'Ketua Tim SDM',
-                        
-                        
                     ])
                     ->required()
                     ->default('pegawai')
-                    ->reactive(),
+                    ->reactive()
+                    ->afterStateUpdated(function ($state, $set, $get) {
+                        if ($state === 'ketua_tim' && !$get('unit_kerja_id')) {
+                            Notification::make()
+                                ->title('Peringatan')
+                                ->body('Role Ketua Tim harus memilih Unit Kerja')
+                                ->warning()
+                                ->send();
+                        }
+                    }),
 
                     Select::make('unit_kerja_id')
                         ->label('Unit Kerja')
                         ->options(UnitKerja::all()->pluck('nama', 'id'))
                         ->searchable()
+                        ->required(fn ($get) => in_array($get('role'), ['pegawai', 'ketua_tim']))
                         ->visible(fn ($get) => in_array($get('role'), ['pegawai', 'ketua_tim'])), // Hanya muncul jika role Pegawai/Ketua
                 // ========================
 
