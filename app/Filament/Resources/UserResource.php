@@ -88,7 +88,7 @@ class UserResource extends Resource
                     ->preserveFilenames()
                     ->nullable()
                     // Hanya tampilkan field ini jika rolenya adalah atasan
-                    ->visible(fn ($get) => in_array($get('role'), ['sdm', 'tata_usaha', 'kepala_stasiun'])),
+                    ->visible(fn ($get) => in_array($get('role'), ['ketua_tim', 'tata_usaha', 'kepala_stasiun'])),
                 // =========================
 
                 TextInput::make('password')

@@ -155,7 +155,8 @@ class EmployeeResource extends Resource
     public static function shouldRegisterNavigation(): bool
     {
         $userRole = Auth::user()->role;
-        // Hanya 'admin' dan 'sdm' yang bisa melihat menu manajemen Pegawai
-        return $userRole === 'admin' || $userRole === 'sdm';
+        
+        // PERBAIKAN: Izinkan 'tata_usaha' melihat menu pegawai juga
+        return in_array($userRole, ['admin', 'tata_usaha']); 
     }
 }
