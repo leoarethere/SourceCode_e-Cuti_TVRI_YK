@@ -20,7 +20,7 @@ class Cuti extends Model
         'tanggal_akhir',
         'alasan',
         'alamat_selama_cuti',
-        'lampiran_link',
+        'lampiran_link', // <-- TAMBAHKAN INI
         'status_atasan_langsung',
         'tanggapan_atasan_langsung',
         'status_tata_usaha',

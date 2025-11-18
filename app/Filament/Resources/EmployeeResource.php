@@ -24,12 +24,10 @@ class EmployeeResource extends Resource
     protected static ?string $model = Employee::class;
 
     // Navigasi
-    protected static ?string $navigationGroup = 'Master Data';
-    protected static ?int $navigationSort = 1; // Atur urutan
     protected static ?string $navigationIcon = 'heroicon-o-identification';
     protected static ?string $modelLabel = 'Pegawai';
     protected static ?string $pluralModelLabel = 'Pegawai';
-    
+    protected static ?int $navigationSort = 1;
 
     /**
      * Form untuk Create/Edit Pegawai
@@ -107,9 +105,6 @@ class EmployeeResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->striped() // Baris belang-belang (Zebra striping)
-            ->defaultSort('created_at', 'desc') // Urutan default terbaru di atas
-            ->poll('10s') // Auto-refresh tabel setiap 10 detik (Realtime feel)
             ->columns([
                 TextColumn::make('nama')
                     ->label('Nama Lengkap')
@@ -162,12 +157,5 @@ class EmployeeResource extends Resource
         $userRole = Auth::user()->role;
         // Hanya 'admin' dan 'sdm' yang bisa melihat menu manajemen Pegawai
         return $userRole === 'admin' || $userRole === 'sdm';
-    }
-
-    protected static ?string $recordTitleAttribute = 'nama';
-
-    public static function getGloballySearchableAttributes(): array
-    {
-        return ['nama', 'NIP'];
     }
 }

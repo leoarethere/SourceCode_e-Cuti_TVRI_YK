@@ -7,7 +7,6 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "codeat3/blade-weather-icons": "^1.7",
         "doctrine/dbal": "^4.3",
         "dompdf/dompdf": "^3.1",
         "filament/filament": "^3.0-stable",

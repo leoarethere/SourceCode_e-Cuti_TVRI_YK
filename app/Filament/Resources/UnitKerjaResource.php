@@ -19,8 +19,6 @@ use App\Filament\Resources\UnitKerjaResource\Pages;
 class UnitKerjaResource extends Resource
 {
     protected static ?string $model = UnitKerja::class;
-    protected static ?string $navigationGroup = 'Master Data';
-    protected static ?int $navigationSort = 1; // Atur urutan
 
     protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
 

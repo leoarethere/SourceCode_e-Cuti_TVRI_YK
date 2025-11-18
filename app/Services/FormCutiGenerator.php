@@ -94,12 +94,15 @@ class FormCutiGenerator extends TCPDF
         
         // Kop Surat
         $this->SetXY(20, 20);
-        $this->Cell(0, 8, 'LEMBAGA PENYIARAN PUBLIK TELEVISI REPUBLIK INDONESIA', 0, 1, 'C');
+        $this->Cell(0, 8, 'LEMBAGA PENYIARAN PUBLIK', 0, 1, 'C');
+        $this->SetFont('helvetica', 'B', 18);
+        $this->Cell(0, 10, 'TELEVISI REPUBLIK INDONESIA', 0, 1, 'C');
         $this->SetFont('helvetica', 'B', 14);
-        $this->Cell(0, 8, 'STASIUN YOGYAKARTA', 0, 1, 'C');
+        $this->Cell(0, 7, 'STASIUN YOGYAKARTA', 0, 1, 'C');
         
         $this->SetFont('helvetica', '', 9);
-        $this->Cell(0, 5, 'Jl. Magelang Km. 4,5 Yogyakarta 55284 | Kontak: (0274) 514402, 514403, 514909 | Email: yogyakarta@tvri.go.id', 0, 1, 'C');
+        $this->Cell(0, 5, 'Jl. Magelang Km. 4, Yogyakarta 55241', 0, 1, 'C');
+        $this->Cell(0, 5, 'Telp: (0274) 565810 | Email: yogyakarta@tvri.go.id', 0, 1, 'C');
         
         // Garis pemisah
         $this->SetLineWidth(0.8);
@@ -287,6 +290,8 @@ class FormCutiGenerator extends TCPDF
         </div>
 
         <div class="footer-text">
+            <strong>LEMBAGA PENYIARAN PUBLIK TELEVISI REPUBLIK INDONESIA</strong><br>
+            Stasiun Yogyakarta<br>
             <em>Dokumen dicetak secara elektronik pada '.Carbon::now()->isoFormat('dddd, D MMMM Y [pukul] HH:mm').' WIB</em><br>
             <span style="font-size: 7pt; color: #9ca3af;">Sistem E-Cuti TVRI Yogyakarta v1.0</span>
         </div>

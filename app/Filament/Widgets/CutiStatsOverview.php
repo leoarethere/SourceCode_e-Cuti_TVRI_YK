@@ -10,9 +10,6 @@ use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 
 class CutiStatsOverview extends BaseWidget
 {
-    // Agar kartu statistik tidak terlalu lebar
-    protected int | string | array $columnSpan = 'full';
-
     // Atur urutan agar muncul paling atas
     protected static ?int $sort = 1;
     
