@@ -22,8 +22,12 @@ class CutiStatsOverview extends BaseWidget
         $pendingCount = Cuti::where('status_global', 'like', '%Menunggu%')->count();
 
         // Hitung Cuti yang sudah Disetujui tahun ini
+        // Pakai OR pada tanggal_mulai / tanggal_akhir agar tidak ada yang terlewat
         $approvedCount = Cuti::where('status_global', 'Disetujui')
-                            ->whereYear('tanggal_mulai', now()->year)
+                            ->where(function ($q) {
+                                $q->whereYear('tanggal_mulai', now()->year)
+                                  ->orWhereYear('tanggal_akhir', now()->year);
+                            })
                             ->count();
 
         // Hitung Total Pegawai
@@ -50,6 +54,6 @@ class CutiStatsOverview extends BaseWidget
     // Pastikan hanya admin/atasan yang bisa lihat
     public static function canView(): bool
     {
-        return Auth::user()->role !== 'pegawai';
+        return Auth::user()?->role !== 'pegawai';
     }
 }

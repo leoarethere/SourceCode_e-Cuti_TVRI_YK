@@ -6,22 +6,22 @@ use App\Models\User;
 use App\Models\Employee;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Relations\BelongsTo; // <-- Import ini
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Cuti extends Model
 {
     use HasFactory, SoftDeletes;
 
-    // Tambahkan 'status' agar bisa diisi
     protected $fillable = [
-        'employee_id', // <-- INI YANG HILANG/TERLEWAT
+        'employee_id',
         'jenis_cuti',
         'tanggal_mulai',
         'tanggal_akhir',
+        'tanggal_cuti_array', // ✅ TAMBAHAN BARU
         'alasan',
         'alamat_selama_cuti',
-        'lampiran_link', // <-- TAMBAHKAN INI
+        'lampiran_link',
         'status_atasan_langsung',
         'tanggapan_atasan_langsung',
         'status_tata_usaha',
@@ -29,25 +29,63 @@ class Cuti extends Model
         'status_kepala',
         'tanggapan_kepala',
         'status_global',
-
-        // === TAMBAHKAN 3 BARIS INI ===
         'atasan_langsung_approver_id',
         'tata_usaha_approver_id',
         'kepala_stasiun_approver_id',
-        // =============================
+    ];
+
+    // ✅ TAMBAHAN: Cast JSON ke array
+    protected $casts = [
+        'tanggal_cuti_array' => 'array',
     ];
 
     /**
-     * Mendefinisikan relasi: Satu Cuti dimiliki oleh satu Employee.
+     * ✅ HELPER METHOD: Hitung lama cuti berdasarkan array tanggal
      */
-    public function employee(): BelongsTo // <-- Tipe relasinya
+    public function getLamaCutiAttribute()
     {
-        return $this->belongsTo(Employee::class);
+        // Jika ada tanggal_cuti_array, hitung dari array
+        if (!empty($this->tanggal_cuti_array) && is_array($this->tanggal_cuti_array)) {
+            return count($this->tanggal_cuti_array);
+        }
+        
+        // Fallback ke perhitungan lama (range tanggal)
+        if ($this->tanggal_mulai && $this->tanggal_akhir) {
+            return \Carbon\Carbon::parse($this->tanggal_mulai)
+                ->diffInDays(\Carbon\Carbon::parse($this->tanggal_akhir)) + 1;
+        }
+        
+        return 0;
     }
 
-    public function sdmApprover()
+    /**
+     * ✅ HELPER METHOD: Format tanggal untuk tampilan
+     */
+    public function getFormattedTanggalCutiAttribute()
     {
-        return $this->belongsTo(User::class, 'sdm_approver_id');
+        if (!empty($this->tanggal_cuti_array) && is_array($this->tanggal_cuti_array)) {
+            $dates = collect($this->tanggal_cuti_array)->sort()->values();
+            
+            if ($dates->count() <= 3) {
+                // Jika sedikit, tampilkan semua
+                return $dates->map(fn($d) => \Carbon\Carbon::parse($d)->format('d/m/Y'))->join(', ');
+            }
+            
+            // Jika banyak, tampilkan first, ..., last
+            $first = \Carbon\Carbon::parse($dates->first())->format('d/m/Y');
+            $last = \Carbon\Carbon::parse($dates->last())->format('d/m/Y');
+            return "$first ... $last ({$dates->count()} hari)";
+        }
+        
+        return '-';
+    }
+
+    /**
+     * Relasi ke Employee
+     */
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class);
     }
 
     public function tataUsahaApprover()

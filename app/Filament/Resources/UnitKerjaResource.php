@@ -95,4 +95,30 @@ class UnitKerjaResource extends Resource
             'edit' => Pages\EditUnitKerja::route('/{record}/edit'),
         ];
     }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return \Illuminate\Support\Facades\Auth::user()?->role === 'admin';
+    }
+
+    // Master unit kerja: admin only (block URL langsung juga)
+    public static function canViewAny(): bool
+    {
+        return \Illuminate\Support\Facades\Auth::user()?->role === 'admin';
+    }
+
+    public static function canCreate(): bool
+    {
+        return \Illuminate\Support\Facades\Auth::user()?->role === 'admin';
+    }
+
+    public static function canEdit($record): bool
+    {
+        return \Illuminate\Support\Facades\Auth::user()?->role === 'admin';
+    }
+
+    public static function canDelete($record): bool
+    {
+        return \Illuminate\Support\Facades\Auth::user()?->role === 'admin';
+    }
 }

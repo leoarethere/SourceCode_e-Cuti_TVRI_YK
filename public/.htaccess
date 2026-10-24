@@ -13,6 +13,14 @@
     RewriteCond %{HTTP:x-xsrf-token} .
     RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
 
+    # Deteksi HTTPS dari proxy/load balancer cPanel
+    # Wajib agar Laravel bisa generate CSRF token yang sesuai protokol
+    RewriteCond %{HTTP:X-Forwarded-Proto} https
+    RewriteRule .* - [E=HTTPS:on]
+
+    RewriteCond %{HTTP:X-Forwarded-SSL} on
+    RewriteRule .* - [E=HTTPS:on]
+
     # Redirect Trailing Slashes If Not A Folder...
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_URI} (.+)/$
@@ -23,3 +31,4 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+

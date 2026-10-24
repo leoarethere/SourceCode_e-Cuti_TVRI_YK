@@ -11,7 +11,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Wajib untuk hosting cPanel/shared hosting yang berada di balik
+        // reverse proxy atau load balancer. Tanpa ini, Laravel tidak bisa
+        // mendeteksi HTTPS sehingga CSRF token mismatch dan POST login gagal.
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

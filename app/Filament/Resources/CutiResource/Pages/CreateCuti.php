@@ -2,7 +2,10 @@
 
 namespace App\Filament\Resources\CutiResource\Pages;
 
+use Carbon\Carbon;
+use App\Models\User;
 use App\Models\Employee;
+use App\Models\UnitKerja;
 use Illuminate\Support\Facades\Auth;
 use App\Filament\Resources\CutiResource;
 use Filament\Notifications\Notification;
@@ -39,20 +42,43 @@ class CreateCuti extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $user = Auth::user();
-        
-        // 1. Logika pengisian ID Pegawai (Wajib untuk non-admin)
-        if ($user->role !== 'admin') {
-            
-            // Cari ID pegawai berdasarkan user_id yang login
-            $employee = Employee::where('user_id', $user->id)->first();
 
-            if ($employee) {
-                $data['employee_id'] = $employee->id;
-            } else {
-                // Jika tidak ada employee terkait, tampilkan error dan hentikan proses
+        // 1. Kunci employee_id: non-admin selalu pakai miliknya (anti IDOR/tampering),
+        // admin wajib pilih.
+        if ($user->role !== 'admin') {
+            $employee = Employee::where('user_id', $user->id)->first();
+            if (! $employee) {
                 Notification::make()
-                    ->title('Error: Profil Pegawai Tidak Ditemukan')
-                    ->body("Akun Anda ({$user->name}) belum terhubung dengan data pegawai. Silakan hubungi admin untuk menautkan akun Anda.")
+                    ->title('Akun Tidak Terhubung')
+                    ->body('Silakan hubungi administrator untuk menautkan akun Anda dengan data pegawai.')
+                    ->danger()
+                    ->persistent()
+                    ->send();
+                $this->halt();
+            }
+            $data['employee_id'] = $employee->id;
+        } else {
+            $employee = isset($data['employee_id']) ? Employee::find($data['employee_id']) : null;
+            if (! $employee) {
+                Notification::make()
+                    ->title('Error Validasi')
+                    ->body('Pilih pegawai terlebih dahulu.')
+                    ->danger()
+                    ->persistent()
+                    ->send();
+                $this->halt();
+            }
+        }
+
+        // 1b. Backdate: pengaju (pegawai + ketua_tim) tidak boleh; admin/TU/kepala boleh
+        if (in_array($user->role, ['pegawai', 'ketua_tim']) && !empty($data['tanggal_cuti_array']) && is_array($data['tanggal_cuti_array'])) {
+            $hasBackdate = collect($data['tanggal_cuti_array'])
+                ->some(fn($date) => Carbon::parse($date)->lt(now()->startOfDay()));
+            
+            if ($hasBackdate) {
+                Notification::make()
+                    ->title('Backdate Tidak Diizinkan')
+                    ->body('Pegawai tidak bisa mengajukan cuti backdate. Hubungi admin atau tata usaha.')
                     ->danger()
                     ->persistent()
                     ->send();
@@ -61,17 +87,75 @@ class CreateCuti extends CreateRecord
             }
         }
 
-        // 2. PERBAIKAN STATUS (Sesuai Struktur Baru Unit Kerja)
-        // Menggunakan 'status_atasan_langsung' menggantikan 'status_sdm'
+        // ✅ 2. UPDATE: Auto-fill tanggal_mulai dan tanggal_akhir dari array
+        if (!empty($data['tanggal_cuti_array']) && is_array($data['tanggal_cuti_array'])) {
+            $dates    = collect($data['tanggal_cuti_array'])->sort()->values();
+            $lamaCuti = $dates->count();
+            $data['tanggal_cuti_array'] = $dates->all();
+            $data['tanggal_mulai']      = $dates->first();
+            $data['tanggal_akhir']      = $dates->last();
+
+            // === VALIDASI SALDO CUTI TAHUNAN ===
+            if (($data['jenis_cuti'] ?? null) === 'Cuti Tahunan') {
+                $employee = Employee::find($data['employee_id']);
+
+                if (! $employee || $employee->sisa_cuti_tahunan < $lamaCuti) {
+                    $sisa = $employee?->sisa_cuti_tahunan ?? 0;
+                    Notification::make()
+                        ->title('Sisa Cuti Tidak Cukup')
+                        ->body("Anda mengajukan {$lamaCuti} hari, namun sisa cuti Anda hanya {$sisa} hari.")
+                        ->danger()
+                        ->persistent()
+                        ->send();
+
+                    $this->halt();
+                }
+            }
+
+        } else {
+            // Validasi: Harus ada tanggal yang dipilih
+            Notification::make()
+                ->title('Error Validasi')
+                ->body('Anda harus memilih minimal 1 tanggal untuk cuti.')
+                ->danger()
+                ->persistent()
+                ->send();
+
+            $this->halt();
+        }
+
+        // 3. Set Status (Sesuai Struktur Baru Unit Kerja)
         $data['status_atasan_langsung'] = 'pending'; 
         $data['status_tata_usaha'] = 'pending';
         $data['status_kepala'] = 'pending';
         
-        // 3. Set Status Global Awal
+        // 4. Set Status Global Awal
         $data['status_global'] = 'Menunggu Persetujuan Atasan Langsung';
 
-        // Validasi lampiran untuk Cuti Sakit
-        if ($data['jenis_cuti'] === 'Cuti Sakit' && empty($data['lampiran_link'])) {
+        // 5. Validasi overlap: tidak boleh ada cuti lain (pending/approved) pada tanggal yg sama
+        if (!empty($data['tanggal_cuti_array']) && is_array($data['tanggal_cuti_array'])) {
+            $requestedDates = collect($data['tanggal_cuti_array'])->map(fn($d) => Carbon::parse($d)->format('Y-m-d'))->all();
+            $overlap = \App\Models\Cuti::where('employee_id', $data['employee_id'])
+                ->whereIn('status_global', ['Menunggu Persetujuan Atasan Langsung', 'Menunggu Persetujuan Tata Usaha', 'Menunggu Persetujuan Kepala', 'Disetujui'])
+                ->where(function ($q) use ($requestedDates) {
+                    $q->whereJsonContains('tanggal_cuti_array', $requestedDates[0]);
+                    foreach (array_slice($requestedDates, 1) as $dt) {
+                        $q->orWhereJsonContains('tanggal_cuti_array', $dt);
+                    }
+                })
+                ->exists();
+
+            if ($overlap) {
+                Notification::make()
+                    ->title('Tanggal Bentrok')
+                    ->body('Beberapa tanggal yang dipilih sudah ada pengajuan cuti lain yang pending/disetujui.')
+                    ->danger()->persistent()->send();
+                $this->halt();
+            }
+        }
+
+        // 6. Validasi lampiran untuk Cuti Sakit
+        if (($data['jenis_cuti'] ?? null) === 'Cuti Sakit' && empty($data['lampiran_link'])) {
             Notification::make()
                 ->title('Error Validasi')
                 ->body('Lampiran surat dokter wajib dilampirkan untuk Cuti Sakit.')
@@ -106,6 +190,34 @@ class CreateCuti extends CreateRecord
                     ->send();
                     
                 $this->halt();
+            }
+        }
+    }
+
+    protected function afterCreate(): void
+    {
+        $cuti = $this->record;
+
+        // Cari Ketua Unit dari Pegawai yang mengajukan (null-safe)
+        $unitKerja = $cuti->employee?->unitKerja;
+
+        if ($unitKerja && $unitKerja->ketua_user_id) {
+            $ketuaTim = User::find($unitKerja->ketua_user_id);
+
+            if ($ketuaTim) {
+                // ✅ UPDATE: Tampilkan jumlah hari dari array
+                $lamaCuti = $cuti->lama_cuti;
+                
+                Notification::make()
+                    ->title('Pengajuan Cuti Baru')
+                    ->body('Pegawai ' . ($cuti->employee?->nama ?? '-') . " mengajukan cuti selama {$lamaCuti} hari. Mohon diperiksa.")
+                    ->icon('heroicon-o-document-text')
+                    ->warning()
+                    ->actions([
+                        \Filament\Notifications\Actions\Action::make('Lihat')
+                            ->url(CutiResource::getUrl('index')),
+                    ])
+                    ->sendToDatabase($ketuaTim);
             }
         }
     }

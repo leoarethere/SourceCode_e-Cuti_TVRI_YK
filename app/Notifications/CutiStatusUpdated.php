@@ -36,11 +36,15 @@ class CutiStatusUpdated extends Notification
      */
     public function toMail(object $notifiable): MailMessage
     {
-        // Tentukan subjek dan baris berdasarkan status
-        $statusText = $this->cuti->status === 'approved' ? 'Telah Disetujui' : 'Telah Ditolak';
+        // Kolom lama `status` sudah diganti `status_global`; pakai yang baru agar tidak crash
+        $global = $this->cuti->status_global ?? '-';
+        $isApproved = str_contains($global, 'Disetujui');
+        $statusText = $isApproved ? 'Telah Disetujui' : "Berstatus: {$global}";
         $subject = "Status Pengajuan Cuti Anda {$statusText}";
-        $greeting = "Halo, {$this->cuti->employee->nama}";
-        $line = "Pengajuan cuti Anda dari tanggal {$this->cuti->tanggal_mulai} s/d {$this->cuti->tanggal_akhir} **{$statusText}**.";
+        $greeting = 'Halo, ' . ($this->cuti->employee?->nama ?? 'Pegawai');
+        $mulai = $this->cuti->tanggal_mulai ?? '-';
+        $akhir = $this->cuti->tanggal_akhir ?? '-';
+        $line = "Pengajuan cuti Anda dari tanggal {$mulai} s/d {$akhir} **{$statusText}**.";
 
         return (new MailMessage)
                     ->subject($subject)

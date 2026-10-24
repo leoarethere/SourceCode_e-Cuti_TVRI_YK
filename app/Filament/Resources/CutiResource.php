@@ -7,6 +7,7 @@ use Filament\Forms;
 use App\Models\Cuti;
 use Filament\Tables;
 use Filament\Forms\Get;
+use Filament\Forms\Set;
 use App\Models\Employee;
 use Filament\Forms\Form;
 use App\Models\UnitKerja;
@@ -15,8 +16,10 @@ use Filament\Resources\Resource;
 use App\Services\FormCutiGenerator;
 use Filament\Tables\Actions\Action;
 use Illuminate\Support\Facades\Auth;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
@@ -38,7 +41,7 @@ class CutiResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
     protected static ?string $modelLabel = 'Pengajuan Cuti';
-    protected static ?string $pluralModelLabel = 'Pengajuan Cuti';
+    protected static ?string $pluralModelLabel = 'Data Pengajuan Cuti';
     protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
@@ -61,16 +64,30 @@ class CutiResource extends Resource
                         'Cuti Melahirkan' => 'Cuti Melahirkan',
                         'Cuti Alasan Penting' => 'Cuti Alasan Penting',
                         'Cuti Luar Tanggungan' => 'Cuti di Luar Tanggungan Negara',
+                        'Cuti Tugas' => 'Cuti Tugas / Dinas Luar',
+                        'Cuti Belajar' => 'Cuti / Tugas Belajar',
+                        'Izin Lainnya' => 'Izin / Keterangan Lainnya',
                     ])
                     ->required(),
 
-                DatePicker::make('tanggal_mulai')
+                // ✅ FITUR BARU: Calendar Checkbox untuk Pemilihan Tanggal
+                Forms\Components\ViewField::make('tanggal_cuti_array')
+                    ->label('Pilih Tanggal Cuti')
+                    ->view('forms.components.calendar-checkbox')
                     ->required()
-                    ->native(false),
-                DatePicker::make('tanggal_akhir')
-                    ->required()
-                    ->native(false)
-                    ->afterOrEqual('tanggal_mulai'),
+                    ->helperText('*Klik tanggal-tanggal yang Anda inginkan untuk cuti. Anda bisa memilih tanggal tidak berurutan.')
+                    ->columnSpanFull(),
+
+                // ✅ HIDDEN FIELDS: Untuk kompatibilitas dengan sistem lama
+                Forms\Components\Hidden::make('tanggal_mulai')
+                    ->default(fn ($get) => !empty($get('tanggal_cuti_array')) 
+                        ? min($get('tanggal_cuti_array')) 
+                        : null),
+                
+                Forms\Components\Hidden::make('tanggal_akhir')
+                    ->default(fn ($get) => !empty($get('tanggal_cuti_array')) 
+                        ? max($get('tanggal_cuti_array')) 
+                        : null),
 
                 Textarea::make('alasan')
                     ->label('Alasan Cuti')
@@ -88,7 +105,7 @@ class CutiResource extends Resource
                     ->url()
                     ->suffixIcon('heroicon-m-link')
                     ->required(fn (Get $get) => $get('jenis_cuti') === 'Cuti Sakit')
-                    ->helperText('Opsional. Wajib diisi (Link Surat Dokter) jika mengambil Cuti Sakit.')
+                    ->helperText('Opsional, tetapi Wajib diisi (Link Surat Dokter) jika mengambil Cuti Sakit.')
                     ->columnSpanFull(),
             ]);
     }
@@ -102,28 +119,149 @@ class CutiResource extends Resource
                     ->sortable()
                     ->searchable()
                     ->visible(fn () => Auth::user()->role !== 'pegawai'),
-
+                    
                 TextColumn::make('jenis_cuti')
+                    ->label('Jenis Cuti')
                     ->searchable(),
-                
-                TextColumn::make('tanggal_mulai')
-                    ->date()
-                    ->sortable(),
+                    
+                TextColumn::make('tanggal_mulai') // ✅ Ganti dari 'tanggal_cuti' ke 'tanggal_mulai'
+                    ->label('Tanggal Cuti')
+                    ->icon('heroicon-m-calendar-days') // Tambah ikon visual
+                    ->sortable()
+                    ->formatStateUsing(function ($record) {
+                        // --- LOGIKA TAMPILAN UTAMA (RANGE TANGGAL) ---
+                        
+                        // Ambil data tanggal dari array (sistem baru) atau kolom biasa (sistem lama)
+                        if (!empty($record->tanggal_cuti_array) && is_array($record->tanggal_cuti_array)) {
+                            $dates = collect($record->tanggal_cuti_array)->sort()->values();
+                            $start = $dates->first();
+                            $end = $dates->last();
+                        } else {
+                            $start = $record->tanggal_mulai;
+                            $end = $record->tanggal_akhir;
+                        }
 
-                TextColumn::make('tanggal_akhir')
-                    ->date()
-                    ->sortable(),
-                
+                        if (!$start) return '-';
+
+                        $cStart = Carbon::parse($start);
+                        $cEnd = $end ? Carbon::parse($end) : $cStart;
+
+                        // Skenario 1: Cuti cuma 1 hari
+                        if ($cStart->isSameDay($cEnd)) {
+                            return $cStart->isoFormat('D MMM Y');
+                        }
+
+                        // Skenario 2: Range tanggal (Contoh: 10 - 12 Des 2025)
+                        // Jika tahun sama
+                        if ($cStart->isSameYear($cEnd)) {
+                            // Jika bulan sama (10 - 12 Des 2025)
+                            if ($cStart->isSameMonth($cEnd)) {
+                                return $cStart->format('d') . ' - ' . $cEnd->isoFormat('D MMM Y'); 
+                            }
+                            // Jika bulan beda (30 Nov - 02 Des 2025)
+                            return $cStart->isoFormat('D MMM') . ' - ' . $cEnd->isoFormat('D MMM Y');
+                        }
+                        
+                        // Jika beda tahun
+                        return $cStart->isoFormat('D MMM Y') . ' - ' . $cEnd->isoFormat('D MMM Y');
+                    })
+                    ->description(function ($record) {
+                        // --- LOGIKA SUB-TEXT (DETAIL KECIL DI BAWAH TANGGAL) ---
+                        
+                        if (!empty($record->tanggal_cuti_array) && is_array($record->tanggal_cuti_array)) {
+                            $count = count($record->tanggal_cuti_array);
+                            
+                            // Jika tanggalnya acak/lompat-lompat, beri info "Acak"
+                            // Kita cek sederhana dengan membandingkan selisih hari vs jumlah item
+                            $first = Carbon::parse(min($record->tanggal_cuti_array));
+                            $last = Carbon::parse(max($record->tanggal_cuti_array));
+                            $diffDays = $first->diffInDays($last) + 1;
+                            
+                            $status = ($diffDays != $count) ? '(Acak)' : '';
+
+                            return "Total: {$count} Hari {$status}";
+                        }
+                        
+                        return null; 
+                    })
+                    ->tooltip(function ($record) {
+                        // --- TOOLTIP SAAT HOVER (Tampilkan semua tanggal lengkap) ---
+                        if (!empty($record->tanggal_cuti_array) && is_array($record->tanggal_cuti_array)) {
+                            return collect($record->tanggal_cuti_array)
+                                ->sort()
+                                ->map(fn($d) => Carbon::parse($d)->isoFormat('dddd, D MMMM Y'))
+                                ->join("\n");
+                        }
+                        return null;
+                    })
+                    ->wrap(),
+
+                // ✅ UPDATE: Hitung lama cuti dari array
+                TextColumn::make('lama_cuti')
+                    ->label('Lama')
+                    ->formatStateUsing(function ($record) {
+                        return $record->lama_cuti . ' Hari';
+                    })
+                    ->sortable()
+                    ->alignCenter(),
+                    
                 BadgeColumn::make('status_global')
                     ->label('Status')
                     ->colors([
                         'warning' => fn ($state) => $state !== 'Disetujui' && $state !== 'Ditolak',
                         'success' => 'Disetujui',
                         'danger' => fn ($state) => str_contains($state, 'Ditolak'),
+                    ])
+                    ->icons([
+                        'heroicon-m-clock' => fn ($state) => str_contains($state, 'Menunggu'),
+                        'heroicon-m-check-circle' => 'Disetujui',
+                        'heroicon-m-x-circle' => fn ($state) => str_contains($state, 'Ditolak'),
                     ]),
             ])
             ->actions([
-                // === AKSI PDF ===
+            // Lihat Detail Pengajuan — pakai Action biasa (bukan ViewAction)
+            // karena ViewAction mencoba mount form ($data) yang tidak ada di ListCutis
+            Tables\Actions\Action::make('lihat_detail')
+                ->label('Lihat Detail')
+                ->icon('heroicon-o-eye')
+                ->color('info')
+                ->modalHeading(fn ($record) => 'Detail Pengajuan Cuti - ' . ($record->employee?->nama ?? '-'))
+                ->modalWidth('5xl')
+                ->modalContent(fn ($record) => view('filament.resources.cuti.view-detail', ['record' => $record]))
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Tutup'),
+
+            // PERBAIKAN: Edit hanya boleh jika status masih 'Menunggu Persetujuan Atasan Langsung'
+            Tables\Actions\EditAction::make()
+                ->visible(fn (Cuti $record) =>
+                    $record->status_global === 'Menunggu Persetujuan Atasan Langsung' &&
+                    $record->employee?->user_id !== null &&
+                    Auth::id() === $record->employee?->user_id
+                ),
+
+            // PERBAIKAN: Hapus - admin bisa hapus semua, non-admin hanya tahap 1.
+            // Jika hapus cuti Tahunan yang Disetujui, kembalikan kuota.
+            Tables\Actions\DeleteAction::make()
+                ->visible(fn (Cuti $record) =>
+                    Auth::user()->role === 'admin' ||
+                    $record->status_global === 'Menunggu Persetujuan Atasan Langsung'
+                )
+                ->action(function (Cuti $record) {
+                    $employee = $record->employee;
+                    $isApprovedAnnual = $record->status_global === 'Disetujui' && $record->jenis_cuti === 'Cuti Tahunan';
+                    $durasi = (int) $record->lama_cuti;
+
+                    if ($isApprovedAnnual && $employee) {
+                        \Illuminate\Support\Facades\DB::transaction(function () use ($employee, $durasi) {
+                            $locked = \App\Models\Employee::whereKey($employee->id)->lockForUpdate()->first();
+                            $locked->sisa_cuti_tahunan += $durasi;
+                            $locked->save();
+                        });
+                    }
+                    $record->delete();
+                }),
+
+                // === AKSI PDF (satu definisi saja) ===
                 Action::make('exportFormPdf')
                     ->label('Cetak Form PDF')
                     ->icon('heroicon-o-printer')
@@ -133,7 +271,7 @@ class CutiResource extends Resource
                             app(FormCutiGenerator::class)->generate($record);
                         }, 200, [
                             'Content-Type' => 'application/pdf',
-                            'Content-Disposition' => 'inline; filename="form_cuti.pdf"',
+                            'Content-Disposition' => 'inline; filename="formulir_cuti.pdf"',
                         ]);
                     }),
 
@@ -144,7 +282,7 @@ class CutiResource extends Resource
                     ->color('info')
                     ->visible(function (Cuti $record) {
                         $user = Auth::user();
-                        $isKetuaUnit = $record->employee->unitKerja && 
+                        $isKetuaUnit = $record->employee?->unitKerja &&
                                        $record->employee->unitKerja->ketua_user_id === $user->id;
                         return $isKetuaUnit && $record->status_global === 'Menunggu Persetujuan Atasan Langsung';
                     })
@@ -163,9 +301,27 @@ class CutiResource extends Resource
 
                         if ($data['status_atasan_langsung'] === 'approved') {
                             $record->status_global = 'Menunggu Persetujuan Tata Usaha';
+                            
+                            // === NOTIFIKASI KE TATA USAHA ===
+                            $penerima = \App\Models\User::where('role', 'tata_usaha')->get();
+                            
+                            Notification::make()
+                                ->title('Persetujuan Cuti (Tahap 2)')
+                                ->body('Pengajuan ' . ($record->employee?->nama ?? '-') . ' telah disetujui Ketua Tim. Menunggu verifikasi TU.')
+                                ->success()
+                                ->sendToDatabase($penerima);
+
                         } else {
-                            $namaUnit = $record->employee->unitKerja->nama ?? 'Unit';
+                            $namaUnit = $record->employee?->unitKerja?->nama ?? 'Unit';
                             $record->status_global = "Ditolak (oleh Ketua $namaUnit)";
+
+                            if ($record->employee?->user) {
+                                Notification::make()
+                                    ->title('Pengajuan Ditolak')
+                                    ->body("Mohon maaf, pengajuan cuti Anda ditolak oleh Ketua Tim.")
+                                    ->danger()
+                                    ->sendToDatabase($record->employee->user);
+                            }
                         }
                         $record->save();
                     }),
@@ -192,8 +348,25 @@ class CutiResource extends Resource
 
                         if ($data['status_tata_usaha'] === 'approved') {
                             $record->status_global = 'Menunggu Persetujuan Kepala';
+
+                            $penerima = \App\Models\User::where('role', 'kepala_stasiun')->get();
+
+                            Notification::make()
+                                ->title('Persetujuan Cuti (Final)')
+                                ->body('Pengajuan ' . ($record->employee?->nama ?? '-') . ' menunggu persetujuan akhir Anda.')
+                                ->info()
+                                ->sendToDatabase($penerima);
+
                         } else {
                             $record->status_global = 'Ditolak (oleh Tata Usaha)';
+
+                            if ($record->employee?->user) {
+                                Notification::make()
+                                    ->title('Pengajuan Ditolak')
+                                    ->body("Pengajuan cuti ditolak oleh Tata Usaha. Cek aplikasi untuk detail.")
+                                    ->danger()
+                                    ->sendToDatabase($record->employee->user);
+                            }
                         }
                         $record->save();
                     }),
@@ -215,51 +388,111 @@ class CutiResource extends Resource
                             ->label('Catatan / Tanggapan'),
                     ])
                     ->action(function (Cuti $record, array $data): void {
-                        $record->status_kepala = $data['status_kepala'];
-                        $record->tanggapan_kepala = $data['tanggapan_kepala'];
-                        $record->kepala_stasiun_approver_id = Auth::id();
                         $employee = $record->employee;
+                        if (! $employee) {
+                            Notification::make()
+                                ->title('Data Pegawai Hilang')
+                                ->body('Approval dibatalkan karena data pegawai tidak ditemukan.')
+                                ->danger()->send();
+                            return;
+                        }
 
                         if ($data['status_kepala'] === 'approved') {
-                            // LOGIKA PEMOTONGAN CUTI (DARI HEAD YANG HILANG)
-                            if ($record->jenis_cuti === 'Cuti Tahunan') {
-                                $durasiCuti = Carbon::parse($record->tanggal_mulai)
-                                                ->diffInDays(Carbon::parse($record->tanggal_akhir)) + 1;
-                                
-                                if ($employee->sisa_cuti_tahunan < $durasiCuti) {
-                                    Notification::make()
-                                        ->title('Gagal! Sisa Cuti Tahunan tidak mencukupi.')
-                                        ->body("Pegawai {$employee->nama} hanya memiliki {$employee->sisa_cuti_tahunan} hari.")
-                                        ->danger()
-                                        ->send();
-                                    
-                                    // Jangan simpan status approved jika kuota habis
-                                    return; 
-                                }
-                                // Kurangi kuota
-                                $employee->sisa_cuti_tahunan -= $durasiCuti;
-                                $employee->save();
+                            try {
+                                \Illuminate\Support\Facades\DB::transaction(function () use ($record, $data, $employee) {
+                                    // Kunci baris employee agar race 2 approval tidak overspend
+                                    $locked = \App\Models\Employee::whereKey($employee->id)->lockForUpdate()->first();
+                                    $durasiCuti = (int) $record->lama_cuti;
+
+                                    if ($record->jenis_cuti === 'Cuti Tahunan') {
+                                        if (($locked->sisa_cuti_tahunan ?? 0) < $durasiCuti) {
+                                            throw new \RuntimeException(
+                                                "Sisa cuti {$locked->sisa_cuti_tahunan} hari tidak cukup untuk {$durasiCuti} hari."
+                                            );
+                                        }
+                                        $locked->sisa_cuti_tahunan -= $durasiCuti;
+                                        $locked->save();
+                                    }
+
+                                    $record->status_kepala = 'approved';
+                                    $record->tanggapan_kepala = $data['tanggapan_kepala'] ?? null;
+                                    $record->kepala_stasiun_approver_id = Auth::id();
+                                    $record->status_global = 'Disetujui';
+                                    $record->save();
+                                });
+                            } catch (\RuntimeException $e) {
+                                // Saldo kurang: JANGAN setujui, tetap Menunggu Kepala + beri tahu approver
+                                $record->status_kepala = 'pending';
+                                $record->tanggapan_kepala = $data['tanggapan_kepala'] ?? null;
+                                $record->kepala_stasiun_approver_id = Auth::id();
+                                $record->save();
+
+                                Notification::make()
+                                    ->title('Gagal Menyetujui: Sisa Cuti Kurang')
+                                    ->body($e->getMessage() . ' Pengajuan tetap Menunggu Persetujuan Kepala.')
+                                    ->danger()->send();
+                                return;
                             }
 
-                            $record->status_global = 'Disetujui';
-                        } else {
-                            $record->status_global = 'Ditolak (oleh Kepala Stasiun)';
-                        }
-                        
-                        $record->save();
+                            // === NOTIFIKASI SUKSES KE PEGAWAI ===
+                            if ($employee->user) {
+                                Notification::make()
+                                    ->title('Cuti DISETUJUI! 🎉')
+                                    ->body("Selamat, pengajuan cuti Anda selama {$record->lama_cuti} hari telah disetujui Kepala Stasiun. Silakan cetak formulir.")
+                                    ->success()
+                                    ->actions([
+                                        \Filament\Notifications\Actions\Action::make('Cetak PDF')
+                                            ->url(route('filament.admin.resources.cutis.index'))
+                                    ])
+                                    ->sendToDatabase($employee->user);
+                            }
 
-                        // Kirim Notifikasi (Pastikan class Notification ada)
-                        if (class_exists(CutiStatusUpdated::class)) {
-                            $employee->notify(new CutiStatusUpdated($record));
+                        } else {
+                            $record->status_kepala = 'rejected';
+                            $record->tanggapan_kepala = $data['tanggapan_kepala'] ?? null;
+                            $record->kepala_stasiun_approver_id = Auth::id();
+                            $record->status_global = 'Ditolak (oleh Kepala Stasiun)';
+
+                            // === NOTIFIKASI DITOLAK KE PEGAWAI ===
+                            if ($employee->user) {
+                                Notification::make()
+                                    ->title('Pengajuan Ditolak')
+                                    ->body("Mohon maaf, pengajuan cuti ditolak oleh Kepala Stasiun.")
+                                    ->danger()
+                                    ->sendToDatabase($employee->user);
+                            }
+                            $record->save();
                         }
                     }),
-
-                EditAction::make(),
-                DeleteAction::make(),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->label('Hapus Terpilih')
+                        ->icon('heroicon-o-trash')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->visible(fn () => Auth::user()->role === 'admin') // Hanya admin bisa bulk delete
+                        ->action(function (Collection $records) {
+                            $cutis = $records->load('employee');
+                            \Illuminate\Support\Facades\DB::transaction(function () use ($cutis) {
+                                foreach ($cutis as $cuti) {
+                                    $employee = $cuti->employee;
+                                    $isApprovedAnnual = $cuti->status_global === 'Disetujui' && $cuti->jenis_cuti === 'Cuti Tahunan';
+                                    $durasi = (int) $cuti->lama_cuti;
+
+                                    // Jika cuti Tahunan yang sudah disetujui, kembalikan kuota
+                                    if ($isApprovedAnnual && $employee) {
+                                        $locked = \App\Models\Employee::whereKey($employee->id)->lockForUpdate()->first();
+                                        $locked->sisa_cuti_tahunan += $durasi;
+                                        $locked->save();
+                                    }
+
+                                    // Hapus record
+                                    $cuti->delete();
+                                }
+                            });
+                        }),
                 ]),
             ]);
     }
@@ -267,7 +500,7 @@ class CutiResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $user = Auth::user();
-        $query = parent::getEloquentQuery();
+        $query = parent::getEloquentQuery()->with(['employee.user', 'employee.unitKerja']);
 
         switch ($user->role) {
             case 'pegawai':
@@ -275,7 +508,6 @@ class CutiResource extends Resource
                 return $query->where('employee_id', $user->employee->id);
             
             case 'ketua_tim': 
-                // Ketua Tim melihat pengajuan anggotanya yang butuh persetujuan dia
                 $unitKerja = UnitKerja::where('ketua_user_id', $user->id)->first();
                 
                 if ($unitKerja) {

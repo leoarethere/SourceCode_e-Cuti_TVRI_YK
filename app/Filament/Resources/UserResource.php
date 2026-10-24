@@ -51,16 +51,15 @@ class UserResource extends Resource
                 // === INI PERUBAHANNYA ===
                 Select::make('role')
                     ->options([
-                        'admin' => 'Admin',
+                        'admin'          => 'Admin',
                         'kepala_stasiun' => 'Kepala Stasiun',
-                        'tata_usaha' => 'Kasubbag Tata Usaha',
-                        'ketua_tim' => 'Ketua Tim / Unit',
-                        'pegawai' => 'Pegawai',
-                        // 'sdm' => 'Ketua Tim SDM',
+                        'tata_usaha'     => 'Kasubbag Tata Usaha',
+                        'ketua_tim'      => 'Ketua Tim / Unit',
+                        'pegawai'        => 'Pegawai',
                     ])
                     ->required()
                     ->default('pegawai')
-                    ->reactive()
+                    ->live()
                     ->afterStateUpdated(function ($state, $set, $get) {
                         if ($state === 'ketua_tim' && !$get('unit_kerja_id')) {
                             Notification::make()
@@ -71,25 +70,22 @@ class UserResource extends Resource
                         }
                     }),
 
-                    Select::make('unit_kerja_id')
-                        ->label('Unit Kerja')
-                        ->options(UnitKerja::all()->pluck('nama', 'id'))
-                        ->searchable()
-                        ->required(fn ($get) => in_array($get('role'), ['pegawai', 'ketua_tim']))
-                        ->visible(fn ($get) => in_array($get('role'), ['pegawai', 'ketua_tim'])), // Hanya muncul jika role Pegawai/Ketua
-                // ========================
+                // Hanya muncul jika role Pegawai / Ketua Tim
+                Select::make('unit_kerja_id')
+                    ->label('Unit Kerja')
+                    ->options(UnitKerja::all()->pluck('nama', 'id'))
+                    ->searchable()
+                    ->required(fn ($get) => in_array($get('role'), ['pegawai', 'ketua_tim']))
+                    ->visible(fn ($get) => in_array($get('role'), ['pegawai', 'ketua_tim'])),
 
-                // === TAMBAHKAN BLOK INI ===
+                // Hanya muncul jika role memiliki TTD (ketua_tim, tata_usaha, kepala_stasiun)
                 FileUpload::make('signature_image_path')
                     ->label('Upload Tanda Tangan (PNG)')
                     ->image()
-                    ->imageEditor() // Izinkan user crop/rotate
-                    ->directory('signatures') // Simpan di 'storage/app/public/signatures'
+                    ->maxSize(2048)
+                    ->directory('signatures')
                     ->preserveFilenames()
-                    ->nullable()
-                    // Hanya tampilkan field ini jika rolenya adalah atasan
                     ->visible(fn ($get) => in_array($get('role'), ['ketua_tim', 'tata_usaha', 'kepala_stasiun'])),
-                // =========================
 
                 TextInput::make('password')
                     ->password()
@@ -154,6 +150,27 @@ class UserResource extends Resource
     public static function shouldRegisterNavigation(): bool
     {
         // Hanya tampilkan menu ini jika role user adalah 'admin'
-        return Auth::user()->role === 'admin';
+        return Auth::user()?->role === 'admin';
+    }
+
+    // Block akses URL langsung (nav-only tidak cukup)
+    public static function canViewAny(): bool
+    {
+        return Auth::user()?->role === 'admin';
+    }
+
+    public static function canCreate(): bool
+    {
+        return Auth::user()?->role === 'admin';
+    }
+
+    public static function canEdit($record): bool
+    {
+        return Auth::user()?->role === 'admin';
+    }
+
+    public static function canDelete($record): bool
+    {
+        return Auth::user()?->role === 'admin';
     }
 }

@@ -2,7 +2,8 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\ServiceProvider; // <-- Pastikan import ini ada
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +20,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Paksa Carbon menggunakan Bahasa Indonesia
+        config(['app.locale' => 'id']);
+        Carbon::setLocale('id');
     }
 }

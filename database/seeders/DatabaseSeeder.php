@@ -6,106 +6,123 @@ use App\Models\User;
 use App\Models\Employee;
 use App\Models\UnitKerja;
 use Illuminate\Database\Seeder;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     public function run(): void
     {
-        // 1. Buat Unit Kerja
-        $unitSDM = UnitKerja::create(['nama' => 'Tim SDM']);
+        // 1. Buat Unit Kerja Dulu (Karena User butuh Unit Kerja)
         $unitBerita = UnitKerja::create(['nama' => 'Tim Berita']);
         $unitTeknik = UnitKerja::create(['nama' => 'Tim Teknik']);
 
-        // 2. Admin
+        // 2. User: ADMIN
         User::create([
             'name' => 'Administrator',
-            'email' => 'admin@test.com',
-            'password' => bcrypt('password'),
+            'email' => 'admin@tvri.go.id',
             'role' => 'admin',
+            'password' => Hash::make('password'), // Password default: 'password'
         ]);
 
-        // 3. Kepala Stasiun
+        // 3. User: KEPALA STASIUN (Approval Tahap 3)
         $kepala = User::create([
-            'name' => 'Budi Santoso',
-            'email' => 'kepala@test.com',
-            'password' => bcrypt('password'),
+            'name' => 'Kepala Stasiun TVRI',
+            'email' => 'kepala@tvri.go.id',
             'role' => 'kepala_stasiun',
-            'signature_image_path' => null, // Upload manual
+            'password' => Hash::make('password'),
         ]);
-
-        // 4. Kasubbag Tata Usaha
-        $tataUsaha = User::create([
-            'name' => 'Siti Nurhaliza',
-            'email' => 'tata.usaha@test.com',
-            'password' => bcrypt('password'),
-            'role' => 'tata_usaha',
-        ]);
-
-        // 5. Ketua Tim SDM
-        $ketuaSDM = User::create([
-            'name' => 'Ahmad Ketua SDM',
-            'email' => 'ketua.sdm@test.com',
-            'password' => bcrypt('password'),
-            'role' => 'ketua_tim',
-            'unit_kerja_id' => $unitSDM->id,
-        ]);
-        $unitSDM->update(['ketua_user_id' => $ketuaSDM->id]);
-
-        // 6. Ketua Tim Berita
-        $ketuaBerita = User::create([
-            'name' => 'Dewi Ketua Berita',
-            'email' => 'ketua.berita@test.com',
-            'password' => bcrypt('password'),
-            'role' => 'ketua_tim',
-            'unit_kerja_id' => $unitBerita->id,
-        ]);
-        $unitBerita->update(['ketua_user_id' => $ketuaBerita->id]);
-
-        // 7. Pegawai SDM
-        $userPegawaiSDM = User::create([
-            'name' => 'Andi Pegawai SDM',
-            'email' => 'pegawai.sdm@test.com',
-            'password' => bcrypt('password'),
-            'role' => 'pegawai',
-            'unit_kerja_id' => $unitSDM->id,
-        ]);
-
+        // Kepala Stasiun juga butuh data Employee untuk Tanda Tangan di PDF
         Employee::create([
-            'user_id' => $userPegawaiSDM->id,
-            'nama' => 'Andi Pegawai SDM',
-            'email' => 'pegawai.sdm@test.com',
-            'NIP' => '199001012020011001',
-            'jabatan' => 'Staff SDM',
-            'unit_kerja_id' => $unitSDM->id,
-            'tanggal_bergabung' => '2020-01-01',
+            'user_id' => $kepala->id,
+            'nama' => $kepala->name,
+            'email' => $kepala->email,
+            'NIP' => '197001012000121001',
+            'jabatan' => 'Kepala Stasiun',
+            'unit_kerja_id' => null, // Kepala tidak terikat unit spesifik
+            'tanggal_bergabung' => '2000-01-01',
             'sisa_cuti_tahunan' => 12,
-            'telp' => '081234567890',
-            'alamat_domisili' => 'Yogyakarta',
         ]);
 
-        // 8. Pegawai Berita
-        $userPegawaiBerita = User::create([
-            'name' => 'Rina Pegawai Berita',
-            'email' => 'pegawai.berita@test.com',
-            'password' => bcrypt('password'),
+        // 4. User: TATA USAHA (Approval Tahap 2)
+        $tataUsaha = User::create([
+            'name' => 'Ibu Tata Usaha',
+            'email' => 'tu@tvri.go.id',
+            'role' => 'tata_usaha',
+            'password' => Hash::make('password'),
+        ]);
+        // TU butuh Employee agar nama/NIP tampil di PDF tanda tangan
+        Employee::create([
+            'user_id' => $tataUsaha->id,
+            'nama' => $tataUsaha->name,
+            'email' => $tataUsaha->email,
+            'NIP' => '197505052000122001',
+            'jabatan' => 'Kasubbag Tata Usaha',
+            'unit_kerja_id' => null,
+            'tanggal_bergabung' => '2000-01-01',
+            'sisa_cuti_tahunan' => 12,
+        ]);
+
+        // 5. User: KETUA TIM BERITA (Approval Tahap 1 untuk Berita)
+        $ketuaBerita = User::create([
+            'name' => 'Ketua Tim Berita',
+            'email' => 'ketuaberita@tvri.go.id',
+            'role' => 'ketua_tim',
+            'unit_kerja_id' => $unitBerita->id,
+            'password' => Hash::make('password'),
+        ]);
+        // Set user ini sebagai ketua di tabel unit_kerjas
+        $unitBerita->update(['ketua_user_id' => $ketuaBerita->id]);
+        // Buat data Employee untuk Ketua
+        Employee::create([
+            'user_id' => $ketuaBerita->id,
+            'unit_kerja_id' => $unitBerita->id,
+            'nama' => $ketuaBerita->name,
+            'email' => $ketuaBerita->email,
+            'NIP' => '198001012010121001',
+            'jabatan' => 'Produser Berita',
+            'tanggal_bergabung' => '2010-01-01',
+            'sisa_cuti_tahunan' => 12,
+        ]);
+
+        // 6. User: PEGAWAI BERITA (Yang Mengajukan Cuti)
+        $pegawaiBerita = User::create([
+            'name' => 'Budi Jurnalis',
+            'email' => 'budi@tvri.go.id',
             'role' => 'pegawai',
             'unit_kerja_id' => $unitBerita->id,
+            'password' => Hash::make('password'),
+        ]);
+        // Wajib buat Employee agar bisa masuk menu Pengajuan Cuti
+        Employee::create([
+            'user_id' => $pegawaiBerita->id,
+            'unit_kerja_id' => $unitBerita->id, // Penting: Harus sama dengan unit ketuanya
+            'nama' => $pegawaiBerita->name,
+            'email' => $pegawaiBerita->email,
+            'NIP' => '199001012020121001',
+            'jabatan' => 'Reporter',
+            'tanggal_bergabung' => '2020-05-20',
+            'telp' => '081234567890',
+            'alamat_domisili' => 'Jl. Magelang Km 5, Yogyakarta',
+            'sisa_cuti_tahunan' => 12,
         ]);
 
+        // 7. Tambahan: PEGAWAI TEKNIK (Untuk tes beda divisi)
+        $pegawaiTeknik = User::create([
+            'name' => 'Siti Kameramen',
+            'email' => 'siti@tvri.go.id',
+            'role' => 'pegawai',
+            'unit_kerja_id' => $unitTeknik->id,
+            'password' => Hash::make('password'),
+        ]);
         Employee::create([
-            'user_id' => $userPegawaiBerita->id,
-            'nama' => 'Rina Pegawai Berita',
-            'email' => 'pegawai.berita@test.com',
-            'NIP' => '199002022020012002',
-            'jabatan' => 'Reporter',
-            'unit_kerja_id' => $unitBerita->id,
-            'tanggal_bergabung' => '2021-03-15',
-            'sisa_cuti_tahunan' => 10,
-            'telp' => '082345678901',
-            'alamat_domisili' => 'Sleman',
+            'user_id' => $pegawaiTeknik->id,
+            'unit_kerja_id' => $unitTeknik->id,
+            'nama' => $pegawaiTeknik->name,
+            'email' => $pegawaiTeknik->email,
+            'NIP' => '199505052021012001',
+            'jabatan' => 'Kameramen',
+            'tanggal_bergabung' => '2021-01-10',
+            'sisa_cuti_tahunan' => 12,
         ]);
     }
 }

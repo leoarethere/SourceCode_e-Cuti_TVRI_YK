@@ -26,13 +26,19 @@ class FormCutiExport implements FromView, WithEvents
         $cuti = $this->cuti->load('employee');
         
         // Hitung masa kerja
-        $masaKerja = $cuti->employee->tanggal_bergabung 
+        $masaKerja = $cuti->employee?->tanggal_bergabung
             ? Carbon::parse($cuti->employee->tanggal_bergabung)->diffInYears(now())
             : 0;
-        
-        // Hitung lama cuti
-        $lamaCuti = Carbon::parse($cuti->tanggal_mulai)
-                          ->diffInDays(Carbon::parse($cuti->tanggal_akhir)) + 1;
+
+        // Hitung lama cuti: utamakan array tanggal (sistem baru), fallback range
+        if (!empty($cuti->tanggal_cuti_array) && is_array($cuti->tanggal_cuti_array)) {
+            $lamaCuti = count($cuti->tanggal_cuti_array);
+        } elseif ($cuti->tanggal_mulai && $cuti->tanggal_akhir) {
+            $lamaCuti = Carbon::parse($cuti->tanggal_mulai)
+                ->diffInDays(Carbon::parse($cuti->tanggal_akhir)) + 1;
+        } else {
+            $lamaCuti = 0;
+        }
         
         return view('exports.form-cuti', [
             'cuti' => $cuti,

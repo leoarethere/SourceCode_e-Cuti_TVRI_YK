@@ -14,9 +14,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Forms\Components\TextInput;   // <-- Tambahkan ini
 
-// === Impor untuk v2 ===
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\NumberInput; // <-- Kita hanya perlu TextInput
 use App\Filament\Resources\EmployeeResource\Pages;
 
 class EmployeeResource extends Resource
@@ -154,9 +152,31 @@ class EmployeeResource extends Resource
     
     public static function shouldRegisterNavigation(): bool
     {
-        $userRole = Auth::user()->role;
-        
+        $userRole = Auth::user()?->role;
+
         // PERBAIKAN: Izinkan 'tata_usaha' melihat menu pegawai juga
-        return in_array($userRole, ['admin', 'tata_usaha']); 
+        // Hapus 'sdm' jika memang role itu sudah tidak dipakai
+        return in_array($userRole, ['admin', 'tata_usaha']);
+    }
+
+    // Block akses URL langsung (nav-only tidak cukup)
+    public static function canViewAny(): bool
+    {
+        return in_array(Auth::user()?->role, ['admin', 'tata_usaha']);
+    }
+
+    public static function canCreate(): bool
+    {
+        return in_array(Auth::user()?->role, ['admin', 'tata_usaha']);
+    }
+
+    public static function canEdit($record): bool
+    {
+        return in_array(Auth::user()?->role, ['admin', 'tata_usaha']);
+    }
+
+    public static function canDelete($record): bool
+    {
+        return in_array(Auth::user()?->role, ['admin', 'tata_usaha']);
     }
 }
