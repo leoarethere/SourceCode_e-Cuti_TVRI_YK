@@ -18,7 +18,10 @@ class EditCuti extends EditRecord
     {
         return [
             Actions\DeleteAction::make()
-                ->visible(fn () => $this->record->status_global === 'Menunggu Persetujuan Atasan Langsung'),
+                ->visible(fn () =>
+                    Auth::user()->role === 'admin' ||
+                    $this->record->status_global === \App\Models\Cuti::STATUS_MENUNGGU_ATASAN
+                ),
         ];
     }
 
@@ -26,21 +29,30 @@ class EditCuti extends EditRecord
     {
         parent::authorizeAccess();
 
+        $user = Auth::user();
+
+        // Admin bisa edit semua pengajuan yang masih pending
+        if ($user->role === 'admin') {
+            abort_if(
+                ! in_array($this->record->status_global, \App\Models\Cuti::STATUS_PENDING, true),
+                403,
+                'Data sudah diproses final dan tidak dapat diubah.'
+            );
+            return;
+        }
+
+        // Non-admin: hanya boleh edit tahap 1 dan hanya pemiliknya sendiri
         abort_if(
-            $this->record->status_global !== 'Menunggu Persetujuan Atasan Langsung',
+            $this->record->status_global !== \App\Models\Cuti::STATUS_MENUNGGU_ATASAN,
             403,
             'Data sudah diproses dan tidak dapat diubah.'
         );
 
-        // Pemilik atau admin saja yang boleh edit
-        $user = Auth::user();
-        if ($user->role !== 'admin') {
-            abort_if(
-                ($this->record->employee?->user_id ?? null) !== $user->id,
-                403,
-                'Anda bukan pemilik pengajuan ini.'
-            );
-        }
+        abort_if(
+            ($this->record->employee?->user_id ?? null) !== $user->id,
+            403,
+            'Anda bukan pemilik pengajuan ini.'
+        );
     }
 
     protected function mutateFormDataBeforeSave(array $data): array
@@ -49,7 +61,12 @@ class EditCuti extends EditRecord
 
         // Kunci employee_id agar tidak bisa diganti via request
         unset($data['employee_id']);
-        unset($data['status_atasan_langsung'], $data['status_tata_usaha'], $data['status_kepala'], $data['status_global']);
+        unset($data['status_atasan_langsung'], $data['status_tata_usaha'], $data['status_kepala']);
+
+        // Admin boleh override status_global jika diinginkan
+        if ($user->role !== 'admin') {
+            unset($data['status_global']);
+        }
 
         // 1. Tanggal wajib + hitung ulang min/max
         if (!empty($data['tanggal_cuti_array']) && is_array($data['tanggal_cuti_array'])) {

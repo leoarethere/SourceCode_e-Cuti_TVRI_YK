@@ -53,13 +53,14 @@ class KriteriaResource extends Resource
                 ->required(),
 
             TextInput::make('bobot')
-                ->label('Bobot')
+                ->label('Bobot (0.00 – 1.00)')
                 ->numeric()
                 ->required()
                 ->minValue(0)
                 ->maxValue(1)
                 ->step(0.01)
-                ->helperText('Contoh: 0.30 = 30%. Mengubah satu bobot akan menyesuaikan bobot kriteria lain agar total tetap 1.00.'),
+                ->suffix('desimal')
+                ->helperText('Contoh: 0.30 = 30%. Mengubah satu bobot akan otomatis menyesuaikan bobot kriteria lain secara proporsional agar total tetap 1.00.'),
         ]);
     }
 
@@ -80,11 +81,12 @@ class KriteriaResource extends Resource
                 TextColumn::make('tipe')
                     ->label('Tipe')
                     ->badge()
-                    ->color(fn (string $state) => $state === 'benefit' ? 'success' : 'warning'),
+                    ->color(fn (string $state) => $state === 'benefit' ? 'success' : 'warning')
+                    ->formatStateUsing(fn (string $state) => ucfirst($state)),
 
                 TextColumn::make('bobot')
                     ->label('Bobot')
-                    ->formatStateUsing(fn ($state) => number_format((float) $state, 2, ',', '.'))
+                    ->formatStateUsing(fn ($state) => number_format((float) $state, 2, ',', '.') . ' (' . number_format((float) $state * 100, 0) . '%)')
                     ->sortable(),
 
                 TextColumn::make('updated_at')

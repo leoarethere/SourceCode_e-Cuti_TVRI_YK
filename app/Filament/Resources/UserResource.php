@@ -34,6 +34,10 @@ class UserResource extends Resource
     protected static ?string $model = User::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-user';
+    protected static ?string $navigationGroup = 'Master Data';
+    protected static ?int $navigationSort = 4;
+    protected static ?string $modelLabel = 'Pengguna';
+    protected static ?string $pluralModelLabel = 'Pengguna';
 
     public static function form(Form $form): Form
     {
@@ -101,25 +105,66 @@ class UserResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('email')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('role')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('email_verified_at')
-                    ->dateTime()
+                    ->label('Nama Pengguna')
+                    ->searchable()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
+
+                Tables\Columns\TextColumn::make('email')
+                    ->label('Email')
+                    ->searchable()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('role')
+                    ->label('Peran (Role)')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'admin'          => 'danger',
+                        'kepala_stasiun' => 'primary',
+                        'tata_usaha'     => 'warning',
+                        'ketua_tim'      => 'info',
+                        default          => 'gray',
+                    })
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'admin'          => 'Admin',
+                        'kepala_stasiun' => 'Kepala Stasiun',
+                        'tata_usaha'     => 'Kasubbag Tata Usaha',
+                        'ketua_tim'      => 'Ketua Tim / Unit',
+                        'pegawai'        => 'Pegawai',
+                        default          => ucfirst($state),
+                    })
+                    ->searchable()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('unitKerja.nama')
+                    ->label('Unit Kerja')
+                    ->placeholder('-')
+                    ->toggleable(),
+
+                Tables\Columns\IconColumn::make('signature_image_path')
+                    ->label('TTD Digital')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-badge')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('success')
+                    ->falseColor('gray')
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
+
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Terdaftar')
+                    ->dateTime('d/m/Y')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('role')
+                    ->label('Peran (Role)')
+                    ->options([
+                        'admin'          => 'Admin',
+                        'kepala_stasiun' => 'Kepala Stasiun',
+                        'tata_usaha'     => 'Kasubbag Tata Usaha',
+                        'ketua_tim'      => 'Ketua Tim / Unit',
+                        'pegawai'        => 'Pegawai',
+                    ]),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

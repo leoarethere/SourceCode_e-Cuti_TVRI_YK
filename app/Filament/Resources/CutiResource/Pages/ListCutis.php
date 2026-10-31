@@ -29,14 +29,13 @@ class ListCutis extends ListRecords
         return [
             CreateAction::make(), 
 
-            // === TOMBOL EXCEL REKAP (TIDAK BERUBAH) ===
-            // Biarkan seperti ini, karena CutiExport bagus untuk Excel
+            // === TOMBOL EXCEL REKAP ===
             Action::make('exportExcel')
                 ->label('Export Rekap Excel')
                 ->icon('heroicon-o-document-arrow-down')
                 ->color('success')
                 ->action(function () {
-                    $data = $this->getFilteredTableQuery()->with('employee')->get(); 
+                    $data = $this->getFilteredTableQuery()->with(['employee.unitKerja'])->get(); 
                     
                     return Excel::download(
                         new CutiExport($data), 
@@ -44,19 +43,15 @@ class ListCutis extends ListRecords
                     );
                 }),
 
-            // === TOMBOL PDF REKAP (LOGIKA BARU) ===
-            // Ini sekarang memanggil generator TCPDF manual kita
+            // === TOMBOL PDF REKAP ===
             Action::make('exportPdfRekap')
                 ->label('Export Rekap PDF')
                 ->icon('heroicon-o-document-text')
                 ->color('danger')
                 ->action(function () {
-                    // 1. Ambil data (sama seperti sebelumnya)
-                    $data = $this->getFilteredTableQuery()->with('employee')->get(); 
+                    $data = $this->getFilteredTableQuery()->with(['employee.unitKerja'])->get(); 
                     
-                    // 2. Panggil generator TCPDF baru kita
                     return new StreamedResponse(function () use ($data) {
-                        // Panggil class generator dan jalankan fungsi 'generate'
                         app(RekapCutiGenerator::class)->generate($data);
                     }, 200, [
                         'Content-Type' => 'application/pdf',

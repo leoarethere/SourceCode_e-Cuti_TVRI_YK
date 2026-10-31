@@ -33,6 +33,13 @@ class CutiStatsOverview extends BaseWidget
         // Hitung Total Pegawai
         $employeeCount = Employee::count();
 
+        // Hitung Pengajuan yang sudah diperingkatkan SAW periode aktif
+        $currentPeriode = now()->format('Y-m');
+        $rankedCount = Cuti::where('periode', $currentPeriode)
+            ->whereIn('status_global', Cuti::STATUS_PENDING)
+            ->whereNotNull('ranking')
+            ->count();
+
         return [
             Stat::make('Total Pegawai', $employeeCount)
                 ->description('Pegawai aktif terdaftar')
@@ -48,6 +55,12 @@ class CutiStatsOverview extends BaseWidget
                 ->description('Total pengajuan diterima')
                 ->icon('heroicon-o-check-circle')
                 ->color('success'),
+
+            Stat::make('Prioritas SAW (' . now()->isoFormat('MMM Y') . ')', $rankedCount)
+                ->description('Pengajuan siap dipertimbangkan')
+                ->icon('heroicon-o-trophy')
+                ->color('info')
+                ->url(route('filament.admin.pages.perangkingan-cuti')),
         ];
     }
 

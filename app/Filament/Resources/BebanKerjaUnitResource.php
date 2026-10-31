@@ -8,6 +8,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use Filament\Tables;
 use Filament\Tables\Actions\BulkActionGroup;
 use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Actions\DeleteBulkAction;
@@ -45,12 +46,13 @@ class BebanKerjaUnitResource extends Resource
                 ->helperText('Format YYYY-MM, contoh 2026-10.'),
 
             TextInput::make('nilai')
-                ->label('Beban Kerja (%)')
+                ->label('Persentase Beban Kerja')
                 ->numeric()
                 ->required()
                 ->minValue(1)
                 ->maxValue(100)
-                ->suffix('%'),
+                ->suffix('%')
+                ->helperText('Semakin tinggi % beban kerja divisi, semakin kecil prioritas cuti (kriteria cost C5). Nilai 100 = beban penuh.'),
         ]);
     }
 
@@ -70,6 +72,12 @@ class BebanKerjaUnitResource extends Resource
                 TextColumn::make('nilai')
                     ->label('Beban Kerja')
                     ->formatStateUsing(fn ($state) => number_format((float) $state, 0, ',', '.') . '%')
+                    ->badge()
+                    ->color(fn ($state) => match(true) {
+                        (float) $state >= 80 => 'danger',
+                        (float) $state >= 60 => 'warning',
+                        default               => 'success',
+                    })
                     ->sortable(),
 
                 TextColumn::make('updated_at')
@@ -79,7 +87,15 @@ class BebanKerjaUnitResource extends Resource
             ])
             ->defaultSort('periode', 'desc')
             ->filters([
-                //
+                Tables\Filters\Filter::make('periode')
+                    ->form([
+                        \Filament\Forms\Components\TextInput::make('periode')
+                            ->label('Periode (YYYY-MM)')
+                            ->placeholder(now()->format('Y-m')),
+                    ])
+                    ->query(fn ($query, array $data) =>
+                        $query->when($data['periode'] ?? null, fn ($q, $p) => $q->where('periode', $p))
+                    ),
             ])
             ->actions([
                 EditAction::make(),

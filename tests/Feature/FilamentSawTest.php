@@ -231,4 +231,24 @@ class FilamentSawTest extends TestCase
             ->get('/admin/cutis/' . $cuti->getRouteKey() . '/edit')
             ->assertOk();
     }
+
+    public function test_admin_dapat_mengedit_cuti_pada_tahap_tata_usaha_atau_kepala(): void
+    {
+        $cuti = $this->cuti('Budi');
+        $cuti->update(['status_global' => Cuti::STATUS_MENUNGGU_TU]);
+
+        $this->actingAs($this->admin)
+            ->get('/admin/cutis/' . $cuti->getRouteKey() . '/edit')
+            ->assertOk();
+    }
+
+    public function test_pegawai_tidak_dapat_mengedit_cuti_setelah_diproses(): void
+    {
+        $cuti = $this->cuti('Budi');
+        $cuti->update(['status_global' => Cuti::STATUS_MENUNGGU_TU]);
+
+        $this->actingAs($this->pegawai)
+            ->get('/admin/cutis/' . $cuti->getRouteKey() . '/edit')
+            ->assertForbidden();
+    }
 }

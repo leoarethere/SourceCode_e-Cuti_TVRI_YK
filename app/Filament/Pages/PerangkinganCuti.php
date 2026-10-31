@@ -95,6 +95,17 @@ class PerangkinganCuti extends Page implements HasTable
         $this->resetTable();
     }
 
+    protected function getHeaderActions(): array
+    {
+        return [
+            \Filament\Actions\Action::make('refresh')
+                ->label('Segarkan Data')
+                ->icon('heroicon-o-arrow-path')
+                ->color('gray')
+                ->action(fn () => $this->resetTable()),
+        ];
+    }
+
     public function table(Table $table): Table
     {
         return $table
@@ -133,6 +144,12 @@ class PerangkinganCuti extends Page implements HasTable
                 TextColumn::make('urgensi')
                     ->label('C4 Urgensi')
                     ->badge()
+                    ->color(fn ($state) => match (true) {
+                        (int) $state >= 5 => 'danger',
+                        (int) $state >= 4 => 'warning',
+                        (int) $state >= 3 => 'info',
+                        default            => 'gray',
+                    })
                     ->alignCenter(),
 
                 TextColumn::make('skor_prioritas')
@@ -151,6 +168,17 @@ class PerangkinganCuti extends Page implements HasTable
                         'Pertimbangan' => 'warning',
                         default => 'gray',
                     }),
+            ])
+            ->actions([
+                \Filament\Tables\Actions\Action::make('lihat_detail')
+                    ->label('Rincian SAW')
+                    ->icon('heroicon-o-chart-bar')
+                    ->color('info')
+                    ->modalHeading(fn ($record) => 'Rincian Perhitungan SAW - ' . ($record->employee?->nama ?? '-'))
+                    ->modalWidth('5xl')
+                    ->modalContent(fn ($record) => view('filament.resources.cuti.view-detail', ['record' => $record]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Tutup'),
             ])
             ->emptyStateHeading('Belum ada data perangkingan')
             ->emptyStateDescription('Pilih periode lalu klik "Hitung Prioritas" untuk memproses pengajuan cuti yang masih pending.')
