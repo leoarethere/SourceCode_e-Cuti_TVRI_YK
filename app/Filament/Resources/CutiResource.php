@@ -42,10 +42,11 @@ class CutiResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
     protected static ?string $navigationGroup = 'Master Data';
+    protected static ?string $navigationLabel = 'Data Pengajuan Cuti';
     protected static ?string $modelLabel = 'Pengajuan Cuti';
     protected static ?string $pluralModelLabel = 'Data Pengajuan Cuti';
     protected static ?string $recordTitleAttribute = 'jenis_cuti';
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 4;
 
     public static function form(Form $form): Form
     {

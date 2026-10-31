@@ -22,7 +22,7 @@ class UnitKerjaResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
     protected static ?string $navigationGroup = 'Master Data';
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 2;
 
     // === LABEL KUSTOM (Menghilangkan 's') ===
     protected static ?string $modelLabel = 'Unit Kerja';

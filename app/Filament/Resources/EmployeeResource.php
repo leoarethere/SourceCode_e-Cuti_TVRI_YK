@@ -27,7 +27,7 @@ class EmployeeResource extends Resource
     protected static ?string $modelLabel = 'Pegawai';
     protected static ?string $pluralModelLabel = 'Pegawai';
     protected static ?string $recordTitleAttribute = 'nama';
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 3;
 
     /**
      * Form untuk Create/Edit Pegawai
