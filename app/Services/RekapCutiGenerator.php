@@ -87,18 +87,20 @@ class RekapCutiGenerator extends TCPDF
         // Lebar kolom (sama seperti revisi terakhir)
         $w = [
             10, // No
-            40, // NIP
-            40, // Nama
-            30, // Unit
-            25, // Jenis
-            55, // Detail Tanggal
-            12, // Hari
-            45, // Alasan
-            20  // Status
+            34, // NIP
+            34, // Nama
+            26, // Unit
+            22, // Jenis
+            45, // Detail Tanggal
+            10, // Hari
+            36, // Alasan
+            22, // Status
+            10, // Rank SAW
+            18  // Skor SAW
         ];
         
         $header = ['No', 'NIP', 'Nama Pegawai', 'Unit Kerja', 'Jenis Cuti', 
-                   'Detail Tanggal Cuti', 'Hari', 'Alasan', 'Status'];
+                   'Detail Tanggal Cuti', 'Hari', 'Alasan', 'Status', 'Rank', 'Skor SAW'];
 
         $this->drawTableHeader($header, $w);
 
@@ -155,6 +157,10 @@ class RekapCutiGenerator extends TCPDF
             $jenisCuti = isset($cuti->jenis_cuti) ? $cuti->jenis_cuti : '-';
             $alasan = isset($cuti->alasan) ? $cuti->alasan : '-';
             $statusGlobal = isset($cuti->status_global) ? $cuti->status_global : '-';
+            $ranking = $cuti->ranking ?? '-';
+            $skor = $cuti->skor_prioritas !== null
+                ? number_format((float) $cuti->skor_prioritas, 3, ',', '.')
+                : '-';
             
             $data = [
                 (string) $no++,
@@ -165,10 +171,12 @@ class RekapCutiGenerator extends TCPDF
                 (string) $detailTanggal,
                 (string) $lamaCuti . ' Hari',
                 (string) $alasan,
-                (string) $statusGlobal
+                (string) $statusGlobal,
+                (string) $ranking,
+                (string) $skor,
             ];
             
-            $align = ['C', 'L', 'L', 'L', 'L', 'L', 'C', 'L', 'L'];
+            $align = ['C', 'L', 'L', 'L', 'L', 'L', 'C', 'L', 'L', 'C', 'C'];
 
             $maxHeight = $this->calculateRowHeight($data, $w);
 

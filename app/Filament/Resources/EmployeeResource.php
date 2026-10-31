@@ -65,6 +65,15 @@ class EmployeeResource extends Resource
                     ->required()
                     ->maxLength(255),
 
+                TextInput::make('nilai_kinerja')
+                    ->label('Nilai Kinerja (0-100)')
+                    ->numeric()
+                    ->required()
+                    ->minValue(0)
+                    ->maxValue(100)
+                    ->default(75)
+                    ->helperText('Dipakai sebagai kriteria C2 pada perhitungan SAW.'),
+
                 // === KOLOM BARU DARI FORM PDF ===
                 Select::make('unit_kerja_id')
                     ->label('Unit Kerja')
@@ -93,7 +102,7 @@ class EmployeeResource extends Resource
                     ->required()
                     ->numeric()
                     ->default(12)
-                    ->minLength(0),
+                    ->minValue(0),
             ]);
     }
 
@@ -122,6 +131,15 @@ class EmployeeResource extends Resource
                     ->label('Jabatan')
                     ->searchable()
                     ->sortable(),
+
+                TextColumn::make('nilai_kinerja')
+                    ->label('Kinerja')
+                    ->sortable(),
+
+                TextColumn::make('masa_kerja_tahun')
+                    ->label('Masa Kerja')
+                    ->formatStateUsing(fn ($state) => $state . ' tahun')
+                    ->toggleable(),
 
                 TextColumn::make('sisa_cuti_tahunan')
                     ->label('Sisa Cuti')

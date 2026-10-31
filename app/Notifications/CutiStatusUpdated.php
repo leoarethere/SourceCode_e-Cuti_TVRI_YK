@@ -24,11 +24,31 @@ class CutiStatusUpdated extends Notification
     }
 
     /**
-     * Tentukan channel pengiriman (kita pakai 'mail').
+     * Tentukan channel pengiriman (mail + database untuk bell Filament).
      */
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['mail', 'database'];
+    }
+
+    /**
+     * Representasi notifikasi untuk database (bell di panel Filament).
+     *
+     * @return array<string, mixed>
+     */
+    public function toDatabase(object $notifiable): array
+    {
+        return [
+            'cuti_id' => $this->cuti->id,
+            'status' => $this->cuti->status_global,
+            'title' => 'Status Pengajuan Cuti Diperbarui',
+            'body' => 'Pengajuan cuti ' . ($this->cuti->employee?->nama ?? 'pegawai')
+                . ' berstatus: ' . ($this->cuti->status_global ?? '-') . '.',
+            'icon' => 'heroicon-o-document-text',
+            'color' => str_contains((string) $this->cuti->status_global, 'Disetujui')
+                ? 'success'
+                : 'warning',
+        ];
     }
 
     /**

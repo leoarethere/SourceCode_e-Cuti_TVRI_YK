@@ -94,6 +94,8 @@ class CreateCuti extends CreateRecord
             $data['tanggal_cuti_array'] = $dates->all();
             $data['tanggal_mulai']      = $dates->first();
             $data['tanggal_akhir']      = $dates->last();
+            $data['periode']            = Carbon::parse($data['tanggal_mulai'])->format('Y-m');
+            $data['lama_cuti']          = $lamaCuti;
 
             // === VALIDASI SALDO CUTI TAHUNAN ===
             if (($data['jenis_cuti'] ?? null) === 'Cuti Tahunan') {

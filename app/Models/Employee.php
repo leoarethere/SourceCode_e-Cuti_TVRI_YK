@@ -29,10 +29,30 @@ class Employee extends Model
         'alamat_domisili',
         'NIP',
         'jabatan',
+        'nilai_kinerja',
         'unit_kerja_id',
         'tanggal_bergabung',
         'sisa_cuti_tahunan',
     ];
+
+    protected $casts = [
+        'nilai_kinerja'      => 'float',
+        'tanggal_bergabung'  => 'date',
+        'sisa_cuti_tahunan'  => 'integer',
+    ];
+
+    /**
+     * Masa kerja dalam tahun penuh (untuk kriteria C3 SAW).
+     */
+    public function getMasaKerjaTahunAttribute(): int
+    {
+        if (! $this->tanggal_bergabung) {
+            return 0;
+        }
+
+        return (int) \Carbon\Carbon::parse($this->tanggal_bergabung)
+            ->diffInYears(now());
+    }
 
     /**
      * Mendefinisikan relasi: Satu Employee memiliki banyak Cuti.

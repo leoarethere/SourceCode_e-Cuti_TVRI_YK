@@ -57,7 +57,9 @@ class EditCuti extends EditRecord
             $data['tanggal_cuti_array'] = $dates;
             $data['tanggal_mulai'] = min($dates);
             $data['tanggal_akhir'] = max($dates);
+            $data['periode'] = Carbon::parse($data['tanggal_mulai'])->format('Y-m');
             $lamaCuti = count($dates);
+            $data['lama_cuti'] = $lamaCuti;
 
             // 2. Backdate: pengaju tidak boleh
             if (in_array($user->role, ['pegawai', 'ketua_tim'])) {

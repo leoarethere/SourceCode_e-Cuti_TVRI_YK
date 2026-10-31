@@ -60,7 +60,9 @@ class CutiExport implements
                 'Alasan',
                 'Alamat Selama Cuti',
                 'Status',
-                'Tanggal Diajukan'
+                'Tanggal Diajukan',
+                'Rank SAW',
+                'Skor SAW'
             ]
         ];
     }
@@ -118,6 +120,10 @@ class CutiExport implements
             $cuti->alamat_selama_cuti,
             $cuti->status_global,
             Carbon::parse($cuti->created_at)->format('d/m/Y'),
+            $cuti->ranking ?? '-',
+            $cuti->skor_prioritas !== null
+                ? number_format((float) $cuti->skor_prioritas, 3, ',', '.')
+                : '-',
         ];
     }
 
@@ -126,6 +132,7 @@ class CutiExport implements
         return [
             'A' => 5, 'B' => 18, 'C' => 25, 'D' => 20, 'E' => 20, 'F' => 20,
             'G' => 45, 'H' => 12, 'I' => 35, 'J' => 35, 'K' => 25, 'L' => 15,
+            'M' => 10, 'N' => 14,
         ];
     }
 
@@ -157,23 +164,23 @@ class CutiExport implements
             AfterSheet::class => function(AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
                 
-                $sheet->mergeCells('A1:L1');
-                $sheet->mergeCells('A2:L2');
-                $sheet->mergeCells('A3:L3');
+                $sheet->mergeCells('A1:N1');
+                $sheet->mergeCells('A2:N2');
+                $sheet->mergeCells('A3:N3');
                 
                 $sheet->getRowDimension(5)->setRowHeight(30);
-                $sheet->getStyle('A5:L5')->getAlignment()->setWrapText(true);
+                $sheet->getStyle('A5:N5')->getAlignment()->setWrapText(true);
                 
                 $highestRow = $sheet->getHighestRow();
                 
                 if ($highestRow > 5) {
                     // Border data
-                    $sheet->getStyle("A5:L{$highestRow}")->applyFromArray([
+                    $sheet->getStyle("A5:N{$highestRow}")->applyFromArray([
                         'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
                     ]);
                     
                     // Alignment Center untuk data (mulai baris 6)
-                    $centerColumns = ['A', 'B', 'H', 'K', 'L'];
+                    $centerColumns = ['A', 'B', 'H', 'K', 'L', 'M', 'N'];
                     foreach ($centerColumns as $col) {
                         $sheet->getStyle("{$col}6:{$col}{$highestRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                     }
@@ -182,7 +189,7 @@ class CutiExport implements
                     $sheet->getStyle("G6:G{$highestRow}")->getAlignment()->setWrapText(true);
                     $sheet->getStyle("I6:J{$highestRow}")->getAlignment()->setWrapText(true);
                     
-                    $sheet->getStyle("A6:L{$highestRow}")->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+                    $sheet->getStyle("A6:N{$highestRow}")->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
                 }
             },
         ];

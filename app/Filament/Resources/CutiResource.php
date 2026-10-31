@@ -33,6 +33,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Actions\BulkActionGroup;
 use Filament\Tables\Actions\DeleteBulkAction;
 use App\Filament\Resources\CutiResource\Pages;
+use Illuminate\Support\Collection;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CutiResource extends Resource
@@ -91,6 +92,19 @@ class CutiResource extends Resource
 
                 Textarea::make('alasan')
                     ->label('Alasan Cuti')
+                    ->required()
+                    ->columnSpanFull(),
+
+                Select::make('urgensi')
+                    ->label('Tingkat Urgensi Cuti (C4)')
+                    ->options([
+                        1 => '1 - Sangat Rendah (liburan)',
+                        2 => '2 - Rendah',
+                        3 => '3 - Sedang',
+                        4 => '4 - Tinggi',
+                        5 => '5 - Sangat Tinggi (sakit/keluarga mendesak)',
+                    ])
+                    ->default(3)
                     ->required()
                     ->columnSpanFull(),
 
@@ -204,7 +218,50 @@ class CutiResource extends Resource
                     })
                     ->sortable()
                     ->alignCenter(),
-                    
+
+                TextColumn::make('periode')
+                    ->label('Periode')
+                    ->badge()
+                    ->sortable()
+                    ->toggleable(),
+
+                TextColumn::make('urgensi')
+                    ->label('Urgensi')
+                    ->badge()
+                    ->alignCenter()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('ranking')
+                    ->label('Rank')
+                    ->badge()
+                    ->color(fn ($state) => match (true) {
+                        (int) $state === 1 => 'success',
+                        (int) $state === 2 => 'info',
+                        (int) $state === 3 => 'warning',
+                        default => 'gray',
+                    })
+                    ->sortable()
+                    ->visible(fn () => Auth::user()->role !== 'pegawai'),
+
+                TextColumn::make('skor_prioritas')
+                    ->label('Skor SAW')
+                    ->formatStateUsing(fn ($state) => $state !== null
+                        ? number_format((float) $state, 3, ',', '.')
+                        : '-')
+                    ->sortable()
+                    ->visible(fn () => Auth::user()->role !== 'pegawai'),
+
+                TextColumn::make('status_rekomendasi')
+                    ->label('Rekomendasi')
+                    ->badge()
+                    ->color(fn ($state) => match ($state) {
+                        'Prioritas Utama' => 'success',
+                        'Direkomendasikan' => 'info',
+                        'Pertimbangan' => 'warning',
+                        default => 'gray',
+                    })
+                    ->visible(fn () => Auth::user()->role !== 'pegawai'),
+
                 BadgeColumn::make('status_global')
                     ->label('Status')
                     ->colors([

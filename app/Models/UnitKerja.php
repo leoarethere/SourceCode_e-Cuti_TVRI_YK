@@ -23,4 +23,10 @@ class UnitKerja extends Model
     {
         return $this->hasMany(Employee::class);
     }
+
+    // Relasi ke beban kerja per periode (kriteria C5 SAW)
+    public function bebanKerjaUnits(): HasMany
+    {
+        return $this->hasMany(BebanKerjaUnit::class);
+    }
 }

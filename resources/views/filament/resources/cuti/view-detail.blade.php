@@ -110,6 +110,10 @@
                     <p class="text-xs text-gray-500 dark:text-gray-400">Total Hari</p>
                     <p class="font-semibold text-blue-700 dark:text-blue-300">{{ $record->lama_cuti }} Hari</p>
                 </div>
+                <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Tingkat Urgensi (C4)</p>
+                    <p class="font-semibold text-gray-900 dark:text-white">{{ $record->urgensi ?? '-' }} / 5</p>
+                </div>
             </div>
 
             <div>
@@ -191,5 +195,90 @@
             @endforeach
         </div>
     </div>
+
+    @if(in_array($record->status_global, \App\Models\Cuti::STATUS_PENDING, true))
+    @php
+        $sawRows = app(\App\Services\SawService::class)->rincian($record);
+        $sawTotal = collect($sawRows)->sum('kontribusi');
+    @endphp
+    {{-- ─── BAGIAN IV: RINCIAN PERHITUNGAN SAW ─────────────────────────────── --}}
+    <div>
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
+            IV. Rincian Perhitungan SAW
+        </h3>
+
+        @if(!empty($sawRows))
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 space-y-3">
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Ranking</p>
+                        <p class="font-semibold text-gray-900 dark:text-white">
+                            {{ $record->ranking ?? '-' }}
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Skor Prioritas</p>
+                        <p class="font-semibold text-blue-700 dark:text-blue-300">
+                            {{ $record->skor_prioritas !== null
+                                ? number_format((float) $record->skor_prioritas, 3, ',', '.')
+                                : number_format($sawTotal, 3, ',', '.') }}
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Status Rekomendasi</p>
+                        <p class="font-semibold text-gray-900 dark:text-white">
+                            {{ $record->status_rekomendasi }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-left text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                <th class="py-2 pr-3">Kriteria</th>
+                                <th class="py-2 pr-3 text-right">Nilai</th>
+                                <th class="py-2 pr-3 text-right">Bobot</th>
+                                <th class="py-2 pr-3 text-right">Normalisasi</th>
+                                <th class="py-2 text-right">Kontribusi</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                            @foreach($sawRows as $row)
+                                <tr>
+                                    <td class="py-2 pr-3">
+                                        <span class="font-medium text-gray-800 dark:text-gray-200">
+                                            {{ $row['kode'] }} - {{ $row['nama'] }}
+                                        </span>
+                                        <span class="ml-1 text-xs text-gray-400">({{ $row['tipe'] }})</span>
+                                    </td>
+                                    <td class="py-2 pr-3 text-right">{{ number_format($row['nilai'], 2, ',', '.') }}</td>
+                                    <td class="py-2 pr-3 text-right">{{ number_format($row['bobot'], 2, ',', '.') }}</td>
+                                    <td class="py-2 pr-3 text-right">{{ number_format($row['normalisasi'], 3, ',', '.') }}</td>
+                                    <td class="py-2 text-right font-medium">{{ number_format($row['kontribusi'], 3, ',', '.') }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot>
+                            <tr class="border-t border-gray-300 dark:border-gray-600">
+                                <td colspan="4" class="py-2 pr-3 text-right font-semibold text-gray-700 dark:text-gray-300">
+                                    Total Skor Prioritas
+                                </td>
+                                <td class="py-2 text-right font-bold text-blue-700 dark:text-blue-300">
+                                    {{ number_format($sawTotal, 3, ',', '.') }}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        @else
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 text-sm text-gray-500 dark:text-gray-400">
+                Rincian SAW belum tersedia. Buka menu <strong>SPK &rarr; Perangkingan SAW</strong>
+                lalu klik <strong>Hitung Prioritas</strong> untuk periode {{ $record->periode ?? '-' }}.
+            </div>
+        @endif
+    </div>
+    @endif
 
 </div>
