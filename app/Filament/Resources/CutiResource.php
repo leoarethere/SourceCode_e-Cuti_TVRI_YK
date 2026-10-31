@@ -388,6 +388,20 @@ class CutiResource extends Resource
                 ->modalSubmitAction(false)
                 ->modalCancelActionLabel('Tutup'),
 
+            // ✅ Tombol Cetak Form PDF langsung di tabel (tidak masuk dropdown titik 3)
+            Action::make('exportFormPdf')
+                ->label('Cetak PDF')
+                ->icon('heroicon-o-printer')
+                ->color('danger')
+                ->action(function (Cuti $record) {
+                    return new StreamedResponse(function () use ($record) {
+                        app(FormCutiGenerator::class)->generate($record);
+                    }, 200, [
+                        'Content-Type' => 'application/pdf',
+                        'Content-Disposition' => 'inline; filename="formulir_cuti.pdf"',
+                    ]);
+                }),
+
             // PERBAIKAN: Admin bisa edit semua yang pending, non-admin hanya tahap 1 dan hanya pemilik
             Tables\Actions\EditAction::make()
                 ->visible(fn (Cuti $record) =>
@@ -421,23 +435,10 @@ class CutiResource extends Resource
                     $record->delete();
                 }),
 
-                // === AKSI PDF (satu definisi saja) ===
-                Tables\Actions\ActionGroup::make([
-                    Action::make('exportFormPdf')
-                        ->label('Cetak Form PDF')
-                        ->icon('heroicon-o-printer')
-                        ->color('danger')
-                        ->action(function (Cuti $record) {
-                            return new StreamedResponse(function () use ($record) {
-                                app(FormCutiGenerator::class)->generate($record);
-                            }, 200, [
-                                'Content-Type' => 'application/pdf',
-                                'Content-Disposition' => 'inline; filename="formulir_cuti.pdf"',
-                            ]);
-                        }),
-
-                    // === AKSI TAHAP 1: KETUA TIM / ATASAN LANGSUNG ===
-                    Action::make('Proses Atasan Langsung')
+            // === AKSI APPROVAL ALUR BERTINGKAT (KETUA UNIT -> TU -> KEPALA) ===
+            Tables\Actions\ActionGroup::make([
+                // === AKSI TAHAP 1: KETUA TIM / ATASAN LANGSUNG ===
+                Action::make('Proses Atasan Langsung')
                         ->label('Proses (Ketua Unit)')
                         ->icon('heroicon-o-pencil')
                         ->color('info')
@@ -627,7 +628,7 @@ class CutiResource extends Resource
                                 $record->save();
                             }
                         }),
-                ])->label('Tindakan')->icon('heroicon-o-ellipsis-vertical'),
+                ])->label('Proses Persetujuan')->icon('heroicon-o-pencil-square'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
