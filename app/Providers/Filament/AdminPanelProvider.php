@@ -136,21 +136,7 @@ class AdminPanelProvider extends PanelProvider
                         background-attachment: fixed;
                     }
 
-                    /* Judul "Masuk ke akun Anda" disembunyikan secara visual,
-                       tetap ada di DOM agar terbaca oleh screen reader. */
-                    .fi-body .fi-simple-header-heading {
-                        position: absolute;
-                        width: 1px;
-                        height: 1px;
-                        margin: -1px;
-                        padding: 0;
-                        overflow: hidden;
-                        clip: rect(0, 0, 0, 0);
-                        white-space: nowrap;
-                        border: 0;
-                    }
-
-                    /* Jarak antara logo dan kolom email setelah judul hilang.
+                    /* Jarak antara logo dan judul "Masuk ke akun Anda".
                        Ubah 1rem jika ingin lebih rapat atau lebih renggang. */
                     .fi-body .fi-simple-header .fi-logo {
                         margin-bottom: 1rem;
