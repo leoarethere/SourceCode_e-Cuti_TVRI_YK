@@ -51,10 +51,10 @@ class AdminPanelProvider extends PanelProvider
             '))
             ->favicon(asset('img/favicon.png'))
             // ===============================
-            
-            // ✅ LIGHT MODE DEFAULT (User masih bisa toggle)
+
+            // LIGHT MODE DEFAULT
             ->darkMode(false)
-            
+
             ->colors([
                 'primary' => Color::Blue,
             ])
@@ -90,28 +90,25 @@ class AdminPanelProvider extends PanelProvider
 
     public function boot(): void
     {
-        // 1. Hook untuk Footer Dashboard (Yang sudah Anda buat sebelumnya)
+        // 1. Footer dashboard
         FilamentView::registerRenderHook(
             PanelsRenderHook::CONTENT_END,
             fn (): string => Blade::render("@include('filament.layout.footer')")
         );
 
-        // 2. ✅ TAMBAHAN BARU: Force Light Mode Default
+        // 2. Force light mode default
         FilamentView::registerRenderHook(
             PanelsRenderHook::HEAD_END,
             fn (): string => '
                 <script>
-                    // Set light mode sebagai default jika belum ada preferensi
                     (function() {
                         const currentTheme = localStorage.getItem("theme");
-                        
-                        // Jika belum pernah set, default ke light
+
                         if (!currentTheme || currentTheme === "dark") {
                             localStorage.setItem("theme", "light");
                             document.documentElement.classList.remove("dark");
                         }
-                        
-                        // Cegah flash dark mode saat load
+
                         if (localStorage.getItem("theme") === "light") {
                             document.documentElement.classList.remove("dark");
                         }
@@ -120,64 +117,152 @@ class AdminPanelProvider extends PanelProvider
             '
         );
 
-        // 3. Modifikasi Tampilan Login (Yang sudah ada)
+        // 3. Tampilan halaman login: background foto + kartu form semi-transparan
         FilamentView::registerRenderHook(
             PanelsRenderHook::HEAD_END,
-            fn (): string => '
+            function (): string {
+                $banner = asset('img/loginbanner.jpeg');
+
+                return <<<HTML
                 <style>
-                    /* Hanya terapkan di halaman login */
-                    .fi-body.fi-panel-admin.fi-page-login {
-                        background-image: url("'. asset('img/loginbanner.jpeg') .'"); 
+                    /* Background foto + lapisan gelap dalam satu deklarasi (tanpa pseudo-element) */
+                    .fi-body:has(.fi-simple-main) {
+                        background-image:
+                            linear-gradient(rgba(15, 23, 42, 0.55), rgba(15, 23, 42, 0.55)),
+                            url("{$banner}");
                         background-size: cover;
                         background-position: center;
                         background-repeat: no-repeat;
+                        background-attachment: fixed;
                     }
 
-                    .fi-body.fi-panel-admin.fi-page-login::before {
-                        content: "";
+                    /* Judul "Masuk ke akun Anda" disembunyikan secara visual,
+                       tetap ada di DOM agar terbaca oleh screen reader. */
+                    .fi-body .fi-simple-header-heading {
                         position: absolute;
-                        top: 0; right: 0; bottom: 0; left: 0;
-                        background: rgba(0, 0, 0, 0.5);
-                        z-index: -1;
+                        width: 1px;
+                        height: 1px;
+                        margin: -1px;
+                        padding: 0;
+                        overflow: hidden;
+                        clip: rect(0, 0, 0, 0);
+                        white-space: nowrap;
+                        border: 0;
                     }
 
-                    .fi-page-login .fi-simple-main-ctn {
-                        background-color: rgba(255, 255, 255, 0.9) !important;
+                    /* Jarak antara logo dan kolom email setelah judul hilang.
+                       Ubah 1rem jika ingin lebih rapat atau lebih renggang. */
+                    .fi-body .fi-simple-header .fi-logo {
+                        margin-bottom: 1rem;
+                    }
+
+                    /* Yang ditimpa adalah KARTU (.fi-simple-main), bukan wadah lebar (.fi-simple-main-ctn) */
+                    .fi-body .fi-simple-main {
+                        background-color: rgba(255, 255, 255, 0.95);
                         backdrop-filter: blur(10px);
+                        -webkit-backdrop-filter: blur(10px);
                         border-radius: 1rem;
-                        padding: 2rem;
-                        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
                     }
 
-                    .dark .fi-page-login .fi-simple-main-ctn {
-                        background-color: rgba(17, 24, 39, 0.9) !important;
-                        border: 1px solid rgba(255,255,255,0.1);
+                    .dark .fi-body .fi-simple-main {
+                        background-color: rgba(17, 24, 39, 0.92);
+                        border: 1px solid rgba(255, 255, 255, 0.1);
                     }
                 </style>
-            '
+                HTML;
+            }
         );
 
-        // 4. Copyright di Login Form
+        // 4. Copyright & kredit di bawah form login
         FilamentView::registerRenderHook(
             PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
-            fn (): string => '
-                <div class="text-center text-gray-500 dark:text-gray-400 mt-4">
-                    <p class="text-xs text-gray-400 dark:text-gray-500">
-                        Copyright ' . date('Y') . ' TVRI Stasiun D.I. Yogyakarta | All rights reserved.
+            function (): string {
+                $year = date('Y');
+
+                return <<<HTML
+                <style>
+                    .login-credits {
+                        margin-top: 1.5rem;
+                        padding-top: 1.25rem;
+                        border-top: 1px solid #e5e7eb;
+                        font-size: 0.75rem;
+                        line-height: 1.6;
+                        color: #6b7280;
+                        text-align: center;
+                    }
+
+                    .login-credits p { margin: 0; }
+                    .login-credits-label { margin-top: 0.875rem !important; font-weight: 500; color: #374151; }
+
+                    .login-credits-link {
+                        color: #2563eb;
+                        font-weight: 600;
+                        text-decoration: none;
+                    }
+
+                    .login-credits-link:hover,
+                    .login-credits-link:focus-visible {
+                        color: #1d4ed8;
+                        text-decoration: underline;
+                        text-underline-offset: 3px;
+                    }
+
+                    .login-credits-list {
+                        list-style: none;
+                        margin: 0.5rem 0 0;
+                        padding: 0;
+                        display: flex;
+                        flex-wrap: wrap;
+                        justify-content: center;
+                        gap: 0.375rem;
+                    }
+
+                    .login-credits-list li { white-space: nowrap; }
+
+                    .login-credits-list .login-credits-link {
+                        display: inline-block;
+                        padding: 0.1875rem 0.625rem;
+                        border: 1px solid #e5e7eb;
+                        border-radius: 999px;
+                        background-color: #f9fafb;
+                        font-weight: 500;
+                        transition: background-color 0.2s ease, border-color 0.2s ease;
+                    }
+
+                    .login-credits-list .login-credits-link:hover,
+                    .login-credits-list .login-credits-link:focus-visible {
+                        background-color: #eff6ff;
+                        border-color: #bfdbfe;
+                        text-decoration: none;
+                    }
+
+                    .dark .login-credits { border-top-color: rgba(255, 255, 255, 0.1); color: #a1a1aa; }
+                    .dark .login-credits-label { color: #d4d4d8; }
+                    .dark .login-credits-link { color: #60a5fa; }
+                    .dark .login-credits-link:hover,
+                    .dark .login-credits-link:focus-visible { color: #93c5fd; }
+                    .dark .login-credits-list .login-credits-link { background-color: #27272a; border-color: #3f3f46; }
+                    .dark .login-credits-list .login-credits-link:hover,
+                    .dark .login-credits-list .login-credits-link:focus-visible { background-color: #1e3a5f; border-color: #1d4ed8; }
+                </style>
+
+                <div class="login-credits">
+                    <p>
+                        Copyright {$year}
+                        <a href="https://yogyakarta.tvri.go.id/" target="_blank" rel="noopener noreferrer" class="login-credits-link">TVRI Stasiun D.I. Yogyakarta</a>
                     </p>
-                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                        <span>&lt;/&gt;</span>
-                        Dikembangkan oleh :
-                        <a href="https://www.instagram.com/leoarethere/" target="_blank" class="underline hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                            Leonardo Putra Susanto
-                        </a>
-                        &amp;
-                        <a href="https://www.instagram.com/destywahyu01/" target="_blank" class="underline hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                            Desty Wahyu Anjani
-                        </a>
-                    </p>
+                    <p>All rights reserved.</p>
+
+                    <p class="login-credits-label">&lt;/&gt; Didesain &amp; Dikembangkan oleh</p>
+                    <ul class="login-credits-list">
+                        <li><a href="https://www.instagram.com/leoarethere/" target="_blank" rel="noopener noreferrer" class="login-credits-link">Leonardo Putra Susanto</a></li>
+                        <li><a href="https://www.instagram.com/destywahyu01/" target="_blank" rel="noopener noreferrer" class="login-credits-link">Desty Wahyu Anjani</a></li>
+                        <li><a href="#" class="login-credits-link">Ilham Bagaskara</a></li>
+                    </ul>
                 </div>
-            '
+                HTML;
+            }
         );
     }
 }
