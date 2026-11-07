@@ -4,7 +4,7 @@ Diagram aktivitas alur pengajuan → persetujuan tiga tahap → finalisasi, ditu
 
 ```mermaid
 flowchart TD
-    Start([Mulai]) --> LOGIN[/<b>👤 Pengaju</b><br/>Login / buka form pengajuan/]
+    Start([Mulai]) --> LOGIN["<b>👤 Pengaju</b><br/>Login → buka form pengajuan"]
     A2["<b>👤 Pengaju</b><br/>Isi formulir:<br/>jenis cuti, tanggal (bisa acak),<br/>urgensi C4, alasan, alamat, lampiran"]
     LOGIN --> A2
 
@@ -20,12 +20,13 @@ flowchart TD
     A2 --> V1
     V1 -- Ya --> V2
     V1 -- Tidak --> V3
-    V2 -- "Saldo kurang"--> X1[Kirim notifikasi:<br/>"Sisa cuti tidak cukup"] --> EF(["Selesai<br/>(tidak tersimpan)"])
+    V2 -- "Saldo kurang"--> X1["Kirim notifikasi:<br/>Sisa cuti tidak cukup"] --> EF(["Selesai<br/>(tidak tersimpan)"])
     V2 -- Cukup --> V3
     V3 -- "Ya (pegawai/ketua)" --> X1
     V3 -- Tidak --> V4
     V4 -- "Bentrok" --> X1
-    V4 -- Aman --> V5    V5 -- Ya --> S1["<b>Sistem</b><br/>status_atasan_langsung = approved<br/>status_global = <b>Menunggu TU</b><br/>(bypass — anti self-approval)"]
+    V4 -- Aman --> V5
+    V5 -- Ya --> S1["<b>Sistem</b><br/>status_atasan_langsung = approved<br/>status_global = <b>Menunggu TU</b><br/>(bypass — anti self-approval)"]
     V5 -- Tidak --> S2["<b>Sistem</b><br/>status_global =<br/><b>Menunggu Atasan Langsung</b>"]
 
     S1 --> N1["⚙️ Kirim notifikasi <br/>ke Tata Usaha"]
