@@ -21,7 +21,7 @@ class CutiChart extends ChartWidget
         $endOfYear = "$year-12-31";
 
         // Ambil cuti Disetujui yang bersinggungan dengan tahun berjalan
-        $cutis = Cuti::where('status_global', 'Disetujui')
+        $cutis = Cuti::where('status_global', Cuti::STATUS_DISETUJUI)
             ->where(function ($q) use ($year, $startOfYear, $endOfYear) {
                 $q->where(function ($sub) use ($startOfYear, $endOfYear) {
                     $sub->whereDate('tanggal_mulai', '<=', $endOfYear)

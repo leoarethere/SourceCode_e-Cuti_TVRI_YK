@@ -4,6 +4,7 @@ namespace App\Filament\Resources\CutiResource\Pages;
 
 use Carbon\Carbon;
 use App\Models\User;
+use App\Models\Cuti;
 use App\Models\Employee;
 use App\Models\UnitKerja;
 use Illuminate\Support\Facades\Auth;
@@ -132,13 +133,23 @@ class CreateCuti extends CreateRecord
         $data['status_kepala'] = 'pending';
         
         // 4. Set Status Global Awal
-        $data['status_global'] = 'Menunggu Persetujuan Atasan Langsung';
+        $data['status_global'] = Cuti::STATUS_MENUNGGU_ATASAN;
+
+        // === PENANGANAN SELF-APPROVAL ===
+        // Jika pengajunya adalah ketua unit itu sendiri, tahap 1 (persetujuan
+        // ketua) diberlakukan sebagai otomatis-disetujui dan pengajuan langsung
+        // lanjut ke Tata Usaha. Ini mencegah ketua menyetujui cutinya sendiri.
+        $unitPengaju = Employee::find($data['employee_id'])?->unitKerja;
+        if ($unitPengaju && $unitPengaju->ketua_user_id === $user->id) {
+            $data['status_atasan_langsung'] = 'approved';
+            $data['status_global'] = Cuti::STATUS_MENUNGGU_TU;
+        }
 
         // 5. Validasi overlap: tidak boleh ada cuti lain (pending/approved) pada tanggal yg sama
         if (!empty($data['tanggal_cuti_array']) && is_array($data['tanggal_cuti_array'])) {
             $requestedDates = collect($data['tanggal_cuti_array'])->map(fn($d) => Carbon::parse($d)->format('Y-m-d'))->all();
-            $overlap = \App\Models\Cuti::where('employee_id', $data['employee_id'])
-                ->whereIn('status_global', ['Menunggu Persetujuan Atasan Langsung', 'Menunggu Persetujuan Tata Usaha', 'Menunggu Persetujuan Kepala', 'Disetujui'])
+            $overlap = Cuti::where('employee_id', $data['employee_id'])
+                ->whereIn('status_global', Cuti::STATUS_PENDING_OR_APPROVED)
                 ->where(function ($q) use ($requestedDates) {
                     $q->whereJsonContains('tanggal_cuti_array', $requestedDates[0]);
                     foreach (array_slice($requestedDates, 1) as $dt) {
@@ -202,14 +213,14 @@ class CreateCuti extends CreateRecord
 
         // Cari Ketua Unit dari Pegawai yang mengajukan (null-safe)
         $unitKerja = $cuti->employee?->unitKerja;
+        $lamaCuti  = $cuti->lama_cuti;
 
-        if ($unitKerja && $unitKerja->ketua_user_id) {
+        $isSelfSubmission = $unitKerja && $unitKerja->ketua_user_id === Auth::id();
+
+        if ($unitKerja && $unitKerja->ketua_user_id && ! $isSelfSubmission) {
             $ketuaTim = User::find($unitKerja->ketua_user_id);
 
             if ($ketuaTim) {
-                // ✅ UPDATE: Tampilkan jumlah hari dari array
-                $lamaCuti = $cuti->lama_cuti;
-                
                 Notification::make()
                     ->title('Pengajuan Cuti Baru')
                     ->body('Pegawai ' . ($cuti->employee?->nama ?? '-') . " mengajukan cuti selama {$lamaCuti} hari. Mohon diperiksa.")
@@ -221,6 +232,26 @@ class CreateCuti extends CreateRecord
                     ])
                     ->sendToDatabase($ketuaTim);
             }
+        }
+
+        // Fallback: pengajuan langsung oleh ketua unit (self-approval bypass)
+        // atau unit tanpa ketua -> notifikasi langsung ke Tata Usaha agar
+        // pengajuan tidak menggantung tanpa approver.
+        if ($isSelfSubmission || ! $unitKerja?->ketua_user_id) {
+            $penerima = User::where('role', 'tata_usaha')->get();
+
+            Notification::make()
+                ->title('Pengajuan Cuti Baru (Via Tata Usaha)')
+                ->body($isSelfSubmission
+                    ? 'Pengajuan cuti oleh Ketua Unit ' . ($cuti->employee?->nama ?? '-') . " selama {$lamaCuti} hari. Diteruskan langsung ke Tata Usaha."
+                    : 'Pengajuan cuti ' . ($cuti->employee?->nama ?? '-') . " selama {$lamaCuti} hari. Unit ini belum memiliki ketua, mohon diproses Tata Usaha.")
+                ->icon('heroicon-o-document-text')
+                ->warning()
+                ->actions([
+                    \Filament\Notifications\Actions\Action::make('Lihat')
+                        ->url(CutiResource::getUrl('index')),
+                ])
+                ->sendToDatabase($penerima);
         }
     }
 }

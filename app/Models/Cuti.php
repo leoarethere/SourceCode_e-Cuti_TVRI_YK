@@ -16,12 +16,40 @@ class Cuti extends Model
     public const STATUS_MENUNGGU_TU     = 'Menunggu Persetujuan Tata Usaha';
     public const STATUS_MENUNGGU_KEPALA = 'Menunggu Persetujuan Kepala';
     public const STATUS_DISETUJUI       = 'Disetujui';
+    public const STATUS_DITOLAK         = 'Ditolak';
 
     public const STATUS_PENDING = [
         self::STATUS_MENUNGGU_ATASAN,
         self::STATUS_MENUNGGU_TU,
         self::STATUS_MENUNGGU_KEPALA,
     ];
+
+    /**
+     * Status yang memblokir tanggal (overlap): seluruh tahap pending + disetujui.
+     */
+    public const STATUS_PENDING_OR_APPROVED = [
+        self::STATUS_MENUNGGU_ATASAN,
+        self::STATUS_MENUNGGU_TU,
+        self::STATUS_MENUNGGU_KEPALA,
+        self::STATUS_DISETUJUI,
+    ];
+
+    /**
+     * Susun status penolakan lengkap dengan penyebutnya.
+     * Contoh: "Ditolak (oleh Ketua Tim Berita)".
+     */
+    public static function statusDitolak(string $oleh): string
+    {
+        return self::STATUS_DITOLAK . " (oleh {$oleh})";
+    }
+
+    /**
+     * Cek apakah status mengandung penolakan.
+     */
+    public function isDitolak(): bool
+    {
+        return str_starts_with((string) $this->status_global, self::STATUS_DITOLAK);
+    }
 
     protected $fillable = [
         'employee_id',

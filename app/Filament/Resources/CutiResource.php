@@ -23,7 +23,6 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
-use App\Notifications\CutiStatusUpdated;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\BadgeColumn;
@@ -313,14 +312,14 @@ class CutiResource extends Resource
                     ->label('Status')
                     ->badge()
                     ->color(fn ($state) => match (true) {
-                        str_contains($state, 'Disetujui') => 'success',
-                        str_contains($state, 'Ditolak')   => 'danger',
+                        str_starts_with($state, Cuti::STATUS_DISETUJUI) => 'success',
+                        str_starts_with($state, Cuti::STATUS_DITOLAK)   => 'danger',
                         default                            => 'warning',
                     })
                     ->icon(fn ($state) => match (true) {
-                        str_contains($state, 'Menunggu')  => 'heroicon-m-clock',
-                        str_contains($state, 'Disetujui') => 'heroicon-m-check-circle',
-                        str_contains($state, 'Ditolak')   => 'heroicon-m-x-circle',
+                        str_starts_with($state, 'Menunggu')  => 'heroicon-m-clock',
+                        str_starts_with($state, Cuti::STATUS_DISETUJUI) => 'heroicon-m-check-circle',
+                        str_starts_with($state, Cuti::STATUS_DITOLAK)   => 'heroicon-m-x-circle',
                         default                            => null,
                     })
                     ->wrap(),
@@ -347,14 +346,16 @@ class CutiResource extends Resource
                         Cuti::STATUS_MENUNGGU_TU     => Cuti::STATUS_MENUNGGU_TU,
                         Cuti::STATUS_MENUNGGU_KEPALA => Cuti::STATUS_MENUNGGU_KEPALA,
                         Cuti::STATUS_DISETUJUI       => Cuti::STATUS_DISETUJUI,
-                        'Ditolak'                    => 'Ditolak',
+                        Cuti::STATUS_DITOLAK         => Cuti::STATUS_DITOLAK,
                     ])
                     ->query(function (Builder $query, array $data) {
                         if (empty($data['value'])) {
                             return $query;
                         }
-                        if ($data['value'] === 'Ditolak') {
-                            return $query->where('status_global', 'like', '%Ditolak%');
+                        // Penolakan disimpan sebagai "Ditolak (oleh <penyetuju>)",
+                        // jadi cukup prefix match, bukan kesamaan persis.
+                        if ($data['value'] === Cuti::STATUS_DITOLAK) {
+                            return $query->where('status_global', 'like', Cuti::STATUS_DITOLAK . '%');
                         }
                         return $query->where('status_global', $data['value']);
                     }),
@@ -419,11 +420,11 @@ class CutiResource extends Resource
             Tables\Actions\DeleteAction::make()
                 ->visible(fn (Cuti $record) =>
                     Auth::user()->role === 'admin' ||
-                    $record->status_global === 'Menunggu Persetujuan Atasan Langsung'
+                    $record->status_global === Cuti::STATUS_MENUNGGU_ATASAN
                 )
                 ->action(function (Cuti $record) {
                     $employee = $record->employee;
-                    $isApprovedAnnual = $record->status_global === 'Disetujui' && $record->jenis_cuti === 'Cuti Tahunan';
+                    $isApprovedAnnual = $record->status_global === Cuti::STATUS_DISETUJUI && $record->jenis_cuti === 'Cuti Tahunan';
                     $durasi = (int) $record->lama_cuti;
 
                     if ($isApprovedAnnual && $employee) {
@@ -443,12 +444,7 @@ class CutiResource extends Resource
                         ->label('Proses (Ketua Unit)')
                         ->icon('heroicon-o-pencil')
                         ->color('info')
-                        ->visible(function (Cuti $record) {
-                            $user = Auth::user();
-                            $isKetuaUnit = $record->employee?->unitKerja &&
-                                           $record->employee->unitKerja->ketua_user_id === $user->id;
-                            return $isKetuaUnit && $record->status_global === 'Menunggu Persetujuan Atasan Langsung';
-                        })
+                        ->visible(fn (Cuti $record) => self::canProsesSebagaiKetua($record))
                         ->form([
                             Select::make('status_atasan_langsung')
                                 ->label('Persetujuan Ketua Unit')
@@ -458,12 +454,21 @@ class CutiResource extends Resource
                                 ->label('Catatan / Tanggapan'),
                         ])
                         ->action(function (Cuti $record, array $data): void {
+                            // Guard otorisasi (bukan hanya menyembunyikan tombol).
+                            if (! self::canProsesSebagaiKetua($record)) {
+                                Notification::make()
+                                    ->title('Tidak Diizinkan')
+                                    ->body('Anda tidak memiliki wewenang memproses pengajuan ini.')
+                                    ->danger()->send();
+                                return;
+                            }
+
                             $record->status_atasan_langsung = $data['status_atasan_langsung'];
                             $record->tanggapan_atasan_langsung = $data['tanggapan_atasan_langsung'];
                             $record->atasan_langsung_approver_id = Auth::id();
 
                             if ($data['status_atasan_langsung'] === 'approved') {
-                                $record->status_global = 'Menunggu Persetujuan Tata Usaha';
+                                $record->status_global = Cuti::STATUS_MENUNGGU_TU;
                                 
                                 // === NOTIFIKASI KE TATA USAHA ===
                                 $penerima = \App\Models\User::where('role', 'tata_usaha')->get();
@@ -476,7 +481,7 @@ class CutiResource extends Resource
 
                             } else {
                                 $namaUnit = $record->employee?->unitKerja?->nama ?? 'Unit';
-                                $record->status_global = "Ditolak (oleh Ketua $namaUnit)";
+                                $record->status_global = Cuti::statusDitolak("Ketua $namaUnit");
 
                                 if ($record->employee?->user) {
                                     Notification::make()
@@ -494,9 +499,7 @@ class CutiResource extends Resource
                         ->label('Proses (Bag. SDM/TU)')
                         ->icon('heroicon-o-pencil')
                         ->color('info')
-                        ->visible(function (Cuti $record) {
-                            return Auth::user()->role === 'tata_usaha' && $record->status_global === 'Menunggu Persetujuan Tata Usaha';
-                        })
+                        ->visible(fn (Cuti $record) => self::canProsesSebagaiTu($record))
                         ->form([
                             Select::make('status_tata_usaha')
                                 ->label('Persetujuan Kasubbag Tata Usaha')
@@ -506,12 +509,20 @@ class CutiResource extends Resource
                                 ->label('Catatan / Tanggapan'),
                         ])
                         ->action(function (Cuti $record, array $data): void {
+                            if (! self::canProsesSebagaiTu($record)) {
+                                Notification::make()
+                                    ->title('Tidak Diizinkan')
+                                    ->body('Anda tidak memiliki wewenang memproses pengajuan ini.')
+                                    ->danger()->send();
+                                return;
+                            }
+
                             $record->status_tata_usaha = $data['status_tata_usaha'];
                             $record->tanggapan_tata_usaha = $data['tanggapan_tata_usaha'];
                             $record->tata_usaha_approver_id = Auth::id();
 
                             if ($data['status_tata_usaha'] === 'approved') {
-                                $record->status_global = 'Menunggu Persetujuan Kepala';
+                                $record->status_global = Cuti::STATUS_MENUNGGU_KEPALA;
 
                                 $penerima = \App\Models\User::where('role', 'kepala_stasiun')->get();
 
@@ -522,7 +533,7 @@ class CutiResource extends Resource
                                     ->sendToDatabase($penerima);
 
                             } else {
-                                $record->status_global = 'Ditolak (oleh Tata Usaha)';
+                                $record->status_global = Cuti::statusDitolak('Tata Usaha');
 
                                 if ($record->employee?->user) {
                                     Notification::make()
@@ -540,10 +551,7 @@ class CutiResource extends Resource
                         ->label('Proses (Kepala)')
                         ->icon('heroicon-o-pencil')
                         ->color('info')
-                        ->visible(function (Cuti $record) {
-                            return Auth::user()->role === 'kepala_stasiun' 
-                                && $record->status_global === 'Menunggu Persetujuan Kepala';
-                        })
+                        ->visible(fn (Cuti $record) => self::canProsesSebagaiKepala($record))
                         ->form([
                             Select::make('status_kepala')
                                 ->label('Persetujuan Kepala Stasiun')
@@ -553,6 +561,14 @@ class CutiResource extends Resource
                                 ->label('Catatan / Tanggapan'),
                         ])
                         ->action(function (Cuti $record, array $data): void {
+                            if (! self::canProsesSebagaiKepala($record)) {
+                                Notification::make()
+                                    ->title('Tidak Diizinkan')
+                                    ->body('Anda tidak memiliki wewenang memproses pengajuan ini.')
+                                    ->danger()->send();
+                                return;
+                            }
+
                             $employee = $record->employee;
                             if (! $employee) {
                                 Notification::make()
@@ -582,7 +598,7 @@ class CutiResource extends Resource
                                         $record->status_kepala = 'approved';
                                         $record->tanggapan_kepala = $data['tanggapan_kepala'] ?? null;
                                         $record->kepala_stasiun_approver_id = Auth::id();
-                                        $record->status_global = 'Disetujui';
+                                        $record->status_global = Cuti::STATUS_DISETUJUI;
                                         $record->save();
                                     });
                                 } catch (\RuntimeException $e) {
@@ -616,7 +632,7 @@ class CutiResource extends Resource
                                 $record->status_kepala = 'rejected';
                                 $record->tanggapan_kepala = $data['tanggapan_kepala'] ?? null;
                                 $record->kepala_stasiun_approver_id = Auth::id();
-                                $record->status_global = 'Ditolak (oleh Kepala Stasiun)';
+                                $record->status_global = Cuti::statusDitolak('Kepala Stasiun');
 
                                 // === NOTIFIKASI DITOLAK KE PEGAWAI ===
                                 if ($employee->user) {
@@ -644,7 +660,7 @@ class CutiResource extends Resource
                             \Illuminate\Support\Facades\DB::transaction(function () use ($cutis) {
                                 foreach ($cutis as $cuti) {
                                     $employee = $cuti->employee;
-                                    $isApprovedAnnual = $cuti->status_global === 'Disetujui' && $cuti->jenis_cuti === 'Cuti Tahunan';
+                                    $isApprovedAnnual = $cuti->status_global === Cuti::STATUS_DISETUJUI && $cuti->jenis_cuti === 'Cuti Tahunan';
                                     $durasi = (int) $cuti->lama_cuti;
 
                                     // Jika cuti Tahunan yang sudah disetujui, kembalikan kuota
@@ -679,15 +695,15 @@ class CutiResource extends Resource
                 if ($unitKerja) {
                     return $query->whereHas('employee', function ($q) use ($unitKerja) {
                         $q->where('unit_kerja_id', $unitKerja->id);
-                    })->where('status_global', 'Menunggu Persetujuan Atasan Langsung');
+                    })->where('status_global', Cuti::STATUS_MENUNGGU_ATASAN);
                 }
                 return $query->where('id', 0); 
 
             case 'tata_usaha':
-                return $query->where('status_global', 'Menunggu Persetujuan Tata Usaha');
+                return $query->where('status_global', Cuti::STATUS_MENUNGGU_TU);
             
             case 'kepala_stasiun':
-                return $query->where('status_global', 'Menunggu Persetujuan Kepala');
+                return $query->where('status_global', Cuti::STATUS_MENUNGGU_KEPALA);
 
             case 'admin':
                 return $query;
@@ -696,6 +712,36 @@ class CutiResource extends Resource
                 return $query->where('id', 0);
         }
     }
+
+    // ==========================================================
+    // Helper otorisasi approval.
+    // Dipakai di visible() (menyembunyikan tombol) DAN di dalam
+    // ->action() (validasi server-side), karena visible() Filament
+    // hanya menyembunyikan UI — komponen Livewire bisa dipanggil
+    // langsung dari klien.
+    // ==========================================================
+
+    public static function canProsesSebagaiKetua(Cuti $record): bool
+    {
+        return $record->status_global === Cuti::STATUS_MENUNGGU_ATASAN
+            && $record->employee?->unitKerja !== null
+            && $record->employee->unitKerja->ketua_user_id === Auth::id()
+            // Pencegahan self-approval: pengajunya sendiri tidak bisa disetujui sendiri.
+            && Auth::id() !== $record->employee?->user_id;
+    }
+
+    public static function canProsesSebagaiTu(Cuti $record): bool
+    {
+        return Auth::user()?->role === 'tata_usaha'
+            && $record->status_global === Cuti::STATUS_MENUNGGU_TU;
+    }
+
+    public static function canProsesSebagaiKepala(Cuti $record): bool
+    {
+        return Auth::user()?->role === 'kepala_stasiun'
+            && $record->status_global === Cuti::STATUS_MENUNGGU_KEPALA;
+    }
+    
     
     public static function getPages(): array
     {

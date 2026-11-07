@@ -119,7 +119,7 @@ class EditCuti extends EditRecord
             $requestedDates = collect($data['tanggal_cuti_array'])->map(fn($d) => Carbon::parse($d)->format('Y-m-d'))->all();
             $overlap = \App\Models\Cuti::where('employee_id', $this->record->employee_id)
                 ->where('id', '!=', $this->record->id) // Kecualikan record yg sedang diedit
-                ->whereIn('status_global', ['Menunggu Persetujuan Atasan Langsung', 'Menunggu Persetujuan Tata Usaha', 'Menunggu Persetujuan Kepala', 'Disetujui'])
+                ->whereIn('status_global', \App\Models\Cuti::STATUS_PENDING_OR_APPROVED)
                 ->where(function ($q) use ($requestedDates) {
                     $q->whereJsonContains('tanggal_cuti_array', $requestedDates[0]);
                     foreach (array_slice($requestedDates, 1) as $dt) {

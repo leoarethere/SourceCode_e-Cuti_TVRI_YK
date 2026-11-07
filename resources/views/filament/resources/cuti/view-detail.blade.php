@@ -34,8 +34,8 @@
     $tanggalChips = array_filter(array_map('trim', explode(' | ', $tanggalDetail)));
 
     $statusColor = match(true) {
-        str_contains($record->status_global ?? '', 'Disetujui') => 'text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-900/30',
-        str_contains($record->status_global ?? '', 'Ditolak')   => 'text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-900/30',
+        str_starts_with((string) ($record->status_global ?? ''), \App\Models\Cuti::STATUS_DISETUJUI) => 'text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-900/30',
+        str_starts_with((string) ($record->status_global ?? ''), \App\Models\Cuti::STATUS_DITOLAK)  => 'text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-900/30',
         default                                                  => 'text-yellow-700 bg-yellow-100 dark:text-yellow-300 dark:bg-yellow-900/30',
     };
 

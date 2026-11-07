@@ -18,12 +18,12 @@ class CutiStatsOverview extends BaseWidget
 
     protected function getStats(): array
     {
-        // Hitung Cuti yang sedang berjalan (Status mengandung kata 'Menunggu')
-        $pendingCount = Cuti::where('status_global', 'like', '%Menunggu%')->count();
+        // Hitung Cuti yang memasuki alur persetujuan (seluruh tahap "Menunggu")
+        $pendingCount = Cuti::whereIn('status_global', Cuti::STATUS_PENDING)->count();
 
         // Hitung Cuti yang sudah Disetujui tahun ini
         // Pakai OR pada tanggal_mulai / tanggal_akhir agar tidak ada yang terlewat
-        $approvedCount = Cuti::where('status_global', 'Disetujui')
+        $approvedCount = Cuti::where('status_global', Cuti::STATUS_DISETUJUI)
                             ->where(function ($q) {
                                 $q->whereYear('tanggal_mulai', now()->year)
                                   ->orWhereYear('tanggal_akhir', now()->year);

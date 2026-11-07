@@ -3,8 +3,8 @@
     
     // Helper untuk status badge
     $statusColor = match(true) {
-        str_contains($record->status_global, 'Disetujui') => 'success',
-        str_contains($record->status_global, 'Ditolak') => 'danger',
+        str_starts_with((string) $record->status_global, \App\Models\Cuti::STATUS_DISETUJUI) => 'success',
+        str_starts_with((string) $record->status_global, \App\Models\Cuti::STATUS_DITOLAK) => 'danger',
         default => 'warning'
     };
     
@@ -301,7 +301,7 @@
 
     {{-- Action Buttons --}}
     <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-        @if($record->status_global === 'Disetujui')
+        @if($record->status_global === \App\Models\Cuti::STATUS_DISETUJUI)
         <p class="text-xs text-gray-500 dark:text-gray-400">
             Tutup detail ini lalu klik <span class="font-semibold">Cetak Form PDF</span> pada baris tabel untuk mengunduh formulir.
         </p>
