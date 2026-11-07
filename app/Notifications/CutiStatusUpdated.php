@@ -4,11 +4,11 @@ namespace App\Notifications;
 
 use App\Models\Cuti;
 use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Notification; // <-- Impor ShouldQueue yang benar
-use Illuminate\Contracts\Queue\ShouldQueue; // <-- Impor MailMessage yang benar (dengan backslash)
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
 
-class CutiStatusUpdated extends Notification
+class CutiStatusUpdated extends Notification implements ShouldQueue
 {
     use Queueable;
 
@@ -45,7 +45,7 @@ class CutiStatusUpdated extends Notification
             'body' => 'Pengajuan cuti ' . ($this->cuti->employee?->nama ?? 'pegawai')
                 . ' berstatus: ' . ($this->cuti->status_global ?? '-') . '.',
             'icon' => 'heroicon-o-document-text',
-            'color' => str_contains((string) $this->cuti->status_global, 'Disetujui')
+            'color' => str_starts_with((string) $this->cuti->status_global, Cuti::STATUS_DISETUJUI)
                 ? 'success'
                 : 'warning',
         ];
@@ -58,12 +58,15 @@ class CutiStatusUpdated extends Notification
     {
         // Kolom lama `status` sudah diganti `status_global`; pakai yang baru agar tidak crash
         $global = $this->cuti->status_global ?? '-';
-        $isApproved = str_contains($global, 'Disetujui');
+        $isApproved = str_starts_with($global, Cuti::STATUS_DISETUJUI);
         $statusText = $isApproved ? 'Telah Disetujui' : "Berstatus: {$global}";
         $subject = "Status Pengajuan Cuti Anda {$statusText}";
         $greeting = 'Halo, ' . ($this->cuti->employee?->nama ?? 'Pegawai');
-        $mulai = $this->cuti->tanggal_mulai ?? '-';
-        $akhir = $this->cuti->tanggal_akhir ?? '-';
+
+        // tanggal_mulai/tanggal_akhir sudah di-cast Carbon (date),
+        // format agar email tidak menampilkan timestamp penuh.
+        $mulai = $this->cuti->tanggal_mulai?->translatedFormat('d F Y') ?? '-';
+        $akhir = $this->cuti->tanggal_akhir?->translatedFormat('d F Y') ?? '-';
         $line = "Pengajuan cuti Anda dari tanggal {$mulai} s/d {$akhir} **{$statusText}**.";
 
         return (new MailMessage)

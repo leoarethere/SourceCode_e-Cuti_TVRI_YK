@@ -34,11 +34,30 @@ class UnitKerjaResource extends Resource
     {
         return $form
             ->schema([
-                // HANYA TERSISA INI SAJA
                 Forms\Components\TextInput::make('nama')
                     ->label('Nama Unit Kerja')
                     ->required()
                     ->maxLength(255)
+                    ->columnSpanFull(),
+
+                // Penunjukan ketua unit. Satu user hanya boleh menjadi ketua
+                // satu unit (rule unique), agar perpindahan/penggandaan ketua
+                // tidak membuat approval tahap 1 ambigu.
+                Forms\Components\Select::make('ketua_user_id')
+                    ->label('Ketua Unit')
+                    ->relationship('ketua', 'name')
+                    ->options(fn () => User::query()
+                        ->whereIn('role', ['ketua_tim', 'pegawai'])
+                        ->orderBy('name')
+                        ->get()
+                        ->pluck('name', 'id'))
+                    ->searchable()
+                    ->nullable()
+                    ->helperText('Pegawai yang menyetujui pengajuan cuti tahap pertama untuk unit ini. Satu user hanya dapat menjadi ketua satu unit.')
+                    ->unique(
+                        ignoreRecord: true,
+                        modifyRuleUsing: fn ($rule) => $rule->whereNotNull('ketua_user_id'),
+                    )
                     ->columnSpanFull(),
             ]);
     }
@@ -51,12 +70,12 @@ class UnitKerjaResource extends Resource
                     ->label('Unit Kerja')
                     ->searchable(),
 
-                // === PERBAIKAN TAMPILAN ===
-                // Menggunakan relasi 'ketua' untuk menampilkan 'name' user, bukan ID-nya
-                // TextColumn::make('ketua.name') 
-                //     ->label('Ketua Unit')
-                //     ->searchable()
-                //     ->sortable(),
+                // Menggunakan relasi 'ketua' untuk menampilkan 'name' user
+                TextColumn::make('ketua.name')
+                    ->label('Ketua Unit')
+                    ->placeholder('Belum ada ketua')
+                    ->searchable()
+                    ->sortable(),
                 
                 TextColumn::make('created_at')
                     ->dateTime()

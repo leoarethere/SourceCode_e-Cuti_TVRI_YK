@@ -6,6 +6,7 @@ use App\Models\BebanKerjaUnit;
 use App\Models\Cuti;
 use App\Models\Kriteria;
 use App\Models\PenilaianCuti;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -198,10 +199,19 @@ class SawService
     {
         $employee = $cuti->employee;
 
+        // Masa kerja (C3) dihitung dari titik waktu pengajuan cuti, bukan
+        // dari "sekarang". Tanpa ini, ranking bisa berubah begitu waktu
+        // berjalan walau data pengajuan tidak berubah.
+        $anchor = $cuti->created_at ?? now();
+
+        $masaKerjaTahun = ($employee?->tanggal_bergabung)
+            ? (int) Carbon::parse($employee->tanggal_bergabung)->diffInYears($anchor)
+            : 0;
+
         $values = [
             'C1' => (float) ($employee?->sisa_cuti_tahunan ?? 0),
             'C2' => (float) ($employee?->nilai_kinerja ?? 0),
-            'C3' => (float) ($employee?->masa_kerja_tahun ?? 0),
+            'C3' => (float) $masaKerjaTahun,
             'C4' => (float) ($cuti->urgensi ?? 1),
             'C5' => $this->bebanKerja(
                 (int) ($employee?->unit_kerja_id ?? 0),
@@ -209,15 +219,21 @@ class SawService
             ),
         ];
 
+        $rows = [];
+
         foreach ($kriteria as $kriteriaItem) {
-            PenilaianCuti::updateOrCreate(
-                [
-                    'cuti_id'     => $cuti->id,
-                    'kriteria_id' => $kriteriaItem->id,
-                ],
-                ['nilai' => $values[$kriteriaItem->kode] ?? 0]
-            );
+            $rows[] = [
+                'cuti_id'     => $cuti->id,
+                'kriteria_id' => $kriteriaItem->id,
+                'nilai'       => $values[$kriteriaItem->kode] ?? 0,
+                'created_at'  => now(),
+                'updated_at'  => now(),
+            ];
         }
+
+        // Satu bulk upsert menggantikan 5x updateOrCreate per pengajuan.
+        // Kolom (cuti_id, kriteria_id) sudah unik di tabel penilaian_cutis.
+        PenilaianCuti::upsert($rows, ['cuti_id', 'kriteria_id'], ['nilai', 'updated_at']);
     }
 
     /**
