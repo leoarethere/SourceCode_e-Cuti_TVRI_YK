@@ -128,6 +128,17 @@ Setiap penolakan menyimpan penyebutnya pada `status_global` sehingga riwayat alu
 
 ---
 
+## 🗺️ Dokumentasi Diagram & ERD
+
+Model visual aplikasi tersedia dalam kode [Mermaid](https://mermaid.js.org/) di folder [`docs/`](docs/README.md):
+
+- **[Use Case Diagram](docs/01-use-case.md)** — aktor & otorisasi per peran
+- **[Activity Diagram](docs/02-activity.md)** — alur pengajuan → approval 3 tahap → finalisasi
+- **[Class Diagram](docs/03-class-diagram.md)** — domain model & service layer
+- **[ERD](docs/DATABASE.md)** — skema database lengkap beserta catatan desain
+
+---
+
 ## 🧪 Testing
 
 ```bash
